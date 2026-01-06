@@ -1,5 +1,7 @@
 use std::{env, str::FromStr};
 
+use crate::error::{AppError, Result};
+
 #[derive(Debug, Clone)]
 pub struct Config {
     pub server: ServerConfig,
@@ -12,7 +14,7 @@ pub struct ServerConfig {
 }
 
 impl Config {
-    pub fn from_env() -> Result<Self, ()> {
+    pub fn from_env() -> Result<Self> {
         dotenvy::dotenv().ok();
 
         Ok(Self {
@@ -28,9 +30,11 @@ fn env_or_default(key: &str, default: &str) -> String {
     env::var(key).unwrap_or_else(|_| default.to_string())
 }
 
-fn env_or_parse<T: FromStr>(key: &str, default: T) -> Result<T, ()> {
+fn env_or_parse<T: FromStr>(key: &str, default: T) -> Result<T> {
     match env::var(key) {
-        Ok(val) => val.parse().map_err(|_| ()),
+        Ok(val) => val
+            .parse()
+            .map_err(|_| AppError::InvalidParams(format!("Invalid value for {key}"))),
         Err(_) => Ok(default),
     }
 }
