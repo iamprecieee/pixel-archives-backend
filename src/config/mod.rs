@@ -6,6 +6,7 @@ use crate::error::{AppError, Result};
 pub struct Config {
     pub server: ServerConfig,
     pub database: DatabaseConfig,
+    pub cache: CacheConfig,
 }
 
 #[derive(Debug, Clone)]
@@ -23,6 +24,19 @@ pub struct DatabaseConfig {
     pub idle_timeout: Duration,
 }
 
+#[derive(Debug, Clone)]
+pub struct CacheConfig {
+    pub url: String,
+    pub pool_size: usize,
+    pub connect_timeout: Duration,
+    pub local_canvas_max_capacity: u64,
+    pub local_canvas_short_ttl: u64,
+    pub local_canvas_mid_ttl: u64,
+    pub local_pixels_max_capacity: u64,
+    pub local_pixels_short_ttl: u64,
+    pub local_pixels_mid_ttl: u64,
+}
+
 impl Config {
     pub fn from_env() -> Result<Self> {
         dotenvy::dotenv().ok();
@@ -38,6 +52,20 @@ impl Config {
                 min_connections: env_or_parse("DB_MIN_CONNECTIONS", 5)?,
                 connect_timeout: Duration::from_secs(env_or_parse("DB_CONNECT_TIMEOUT_SECS", 10)?),
                 idle_timeout: Duration::from_secs(env_or_parse("DB_IDLE_TIMEOUT_SECS", 300)?),
+            },
+            cache: CacheConfig {
+                url: env_required("CACHE_URL")?,
+                pool_size: env_or_parse("CACHE_POOL_SIZE", 10)?,
+                connect_timeout: Duration::from_secs(env_or_parse(
+                    "CACHE_CONNECT_TIMEOUT_SECS",
+                    10,
+                )?),
+                local_canvas_max_capacity: env_or_parse("CACHE_LOCAL_CANVAS_MAX_CAPACITY", 500)?,
+                local_canvas_short_ttl: env_or_parse("CACHE_LOCAL_CANVAS_SHORT_TTL", 15)?,
+                local_canvas_mid_ttl: env_or_parse("CACHE_LOCAL_CANVAS_MID_TTL", 30)?,
+                local_pixels_max_capacity: env_or_parse("CACHE_LOCAL_PIXELS_MAX_CAPACITY", 100)?,
+                local_pixels_short_ttl: env_or_parse("CACHE_LOCAL_PIXELS_SHORT_TTL", 5)?,
+                local_pixels_mid_ttl: env_or_parse("CACHE_LOCAL_PIXELS_MID_TTL", 10)?,
             },
         })
     }

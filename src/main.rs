@@ -1,4 +1,4 @@
-use pixel_archives::{config::Config, db::Database, error::Result};
+use pixel_archives::{cache::Cache, config::Config, db::Database, error::Result};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -14,10 +14,13 @@ async fn main() -> Result<()> {
     tracing::info!("Configuration loaded");
 
     let db = Database::init_db(&config.database).await?;
-    tracing::info!("Database connected");
+    tracing::info!("Database initialized");
 
     db.run_migrations().await?;
     tracing::info!("Migrations completed");
+
+    let _cache = Cache::init(&config).await;
+    tracing::info!("Cache initialized");
 
     Ok(())
 }
