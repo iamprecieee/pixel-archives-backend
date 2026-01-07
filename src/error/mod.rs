@@ -11,6 +11,15 @@ pub enum AppError {
 
     #[error("Internal server error - {0}")]
     InternalServerError(String),
+
+    #[error("Database error - {0}")]
+    DatabaseError(#[from] sea_orm::DbErr),
+
+    #[error("Canvas not found")]
+    CanvasNotFound,
+
+    #[error("Invalid canvas state transition")]
+    InvalidCanvasStateTransition,
 }
 
 impl AppError {
@@ -18,6 +27,9 @@ impl AppError {
         match self {
             Self::InvalidParams(_) => -32602,
             Self::InternalServerError(_) => -32603,
+            Self::DatabaseError(_) => -32070,
+            Self::CanvasNotFound => -32030,
+            Self::InvalidCanvasStateTransition => -32031,
         }
     }
 
@@ -25,6 +37,15 @@ impl AppError {
         match self {
             Self::InternalServerError(error) => {
                 tracing::error!(error = %error, "Internal server error");
+
+                JsonRpcError {
+                    code: self.code(),
+                    message: "Internal server error".to_string(),
+                    data: None,
+                }
+            }
+            Self::DatabaseError(error) => {
+                tracing::error!(error = %error, "Database error");
 
                 JsonRpcError {
                     code: self.code(),

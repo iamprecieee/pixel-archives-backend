@@ -1,0 +1,74 @@
+use sea_orm::{
+    DbErr, DeriveIden, DeriveMigrationName,
+    prelude::Expr,
+    sea_query::{ColumnDef, Index, Table},
+};
+use sea_orm_migration::{MigrationTrait, SchemaManager, async_trait::async_trait};
+
+#[derive(DeriveIden)]
+pub enum Users {
+    Table,
+    Id,
+    WalletAddress,
+    Username,
+    CreatedAt,
+}
+
+#[derive(DeriveMigrationName)]
+pub struct Migration;
+
+#[async_trait]
+impl MigrationTrait for Migration {
+    async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager
+            .create_table(
+                Table::create()
+                    .table(Users::Table)
+                    .if_not_exists()
+                    .col(ColumnDef::new(Users::Id).uuid().not_null().primary_key())
+                    .col(
+                        ColumnDef::new(Users::WalletAddress)
+                            .string_len(44)
+                            .not_null()
+                            .unique_key(),
+                    )
+                    .col(ColumnDef::new(Users::Username).string_len(50).unique_key())
+                    .col(
+                        ColumnDef::new(Users::CreatedAt)
+                            .timestamp_with_time_zone()
+                            .not_null()
+                            .default(Expr::current_timestamp()),
+                    )
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_index(
+                Index::create()
+                    .name("idx_users_wallet_address")
+                    .table(Users::Table)
+                    .col(Users::WalletAddress)
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_index(
+                Index::create()
+                    .name("idx_users_username")
+                    .table(Users::Table)
+                    .col(Users::Username)
+                    .to_owned(),
+            )
+            .await?;
+
+        Ok(())
+    }
+
+    async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager
+            .drop_table(Table::drop().table(Users::Table).to_owned())
+            .await
+    }
+}
