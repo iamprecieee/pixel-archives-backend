@@ -1,4 +1,8 @@
-use pixel_archives::{cache::Cache, config::Config, db::Database, error::Result};
+use pixel_archives::{
+    config::Config,
+    error::Result,
+    infrastructure::{cache::Cache, db::Database},
+};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -11,6 +15,7 @@ async fn main() -> Result<()> {
         .init();
 
     let config = Config::from_env()?;
+    config.validate()?;
     tracing::info!("Configuration loaded");
 
     let db = Database::init_db(&config.database).await?;

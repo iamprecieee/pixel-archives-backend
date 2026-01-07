@@ -6,12 +6,12 @@ use sea_orm::{
 use uuid::Uuid;
 
 use crate::{
-    db::{
+    error::{AppError, Result},
+    infrastructure::db::{
         Database,
         entities::{Canvas, CanvasCollaborator, Pixel, canvas, canvas_collaborator, pixel},
         repositories::generate_invite_code,
     },
-    error::{AppError, Result},
 };
 
 pub struct CanvasRepository;

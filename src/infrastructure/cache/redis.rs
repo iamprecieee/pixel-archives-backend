@@ -42,13 +42,13 @@ impl RedisCache {
     }
 
     pub async fn get<T: DeserializeOwned>(&self, key: &str) -> Result<Option<T>> {
-        let mut conn = self
+        let mut redis_connection = self
             .pool
             .get()
             .await
             .map_err(|e| AppError::InternalServerError(e.to_string()))?;
 
-        let value: Option<String> = conn.get(key).await?;
+        let value: Option<String> = redis_connection.get(key).await?;
         match value {
             Some(val) => Ok(Some(serde_json::from_str(&val)?)),
             None => Ok(None),
@@ -56,26 +56,47 @@ impl RedisCache {
     }
 
     pub async fn set<T: Serialize>(&self, key: &str, value: &T, ttl: Duration) -> Result<()> {
-        let mut conn = self
+        let mut redis_connection = self
             .pool
             .get()
             .await
             .map_err(|e| AppError::InternalServerError(e.to_string()))?;
 
         let serialized = serde_json::to_string(value)?;
-        conn.set_ex::<_, _, ()>(key, serialized, ttl.as_secs())
+        redis_connection
+            .set_ex::<_, _, ()>(key, serialized, ttl.as_secs())
             .await?;
         Ok(())
     }
 
-    pub async fn delete(&self, key: &str) -> Result<()> {
-        let mut conn = self
+    pub async fn setnx(&self, key: &str, ttl: Duration) -> Result<bool> {
+        let mut redis_connection = self
             .pool
             .get()
             .await
             .map_err(|e| AppError::InternalServerError(e.to_string()))?;
 
-        conn.del::<_, ()>(key).await?;
+        let result: Option<String> = redis::cmd("SET")
+            .arg(key)
+            .arg("true")
+            .arg("NX")
+            .arg("EX")
+            .arg(ttl.as_secs())
+            .query_async(&mut *redis_connection)
+            .await
+            .map_err(AppError::RedisError)?;
+
+        Ok(result.is_some())
+    }
+
+    pub async fn delete(&self, key: &str) -> Result<()> {
+        let mut redis_connection = self
+            .pool
+            .get()
+            .await
+            .map_err(|e| AppError::InternalServerError(e.to_string()))?;
+
+        redis_connection.del::<_, ()>(key).await?;
         Ok(())
     }
 }

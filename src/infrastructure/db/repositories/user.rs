@@ -1,9 +1,9 @@
 use crate::{
-    db::{
+    error::{AppError, Result},
+    infrastructure::db::{
         Database,
         entities::{User, user},
     },
-    error::{AppError, Result},
 };
 use chrono::Utc;
 use sea_orm::{

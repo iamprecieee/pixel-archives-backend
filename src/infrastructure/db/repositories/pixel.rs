@@ -6,11 +6,11 @@ use sea_orm::{
 use uuid::Uuid;
 
 use crate::{
-    db::{
+    error::{AppError, Result},
+    infrastructure::db::{
         Database,
         entities::{Pixel, pixel},
     },
-    error::{AppError, Result},
 };
 
 pub struct PixelRepository;

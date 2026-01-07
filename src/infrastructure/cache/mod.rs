@@ -2,9 +2,9 @@ pub mod keys;
 pub mod local;
 pub mod redis;
 
-use crate::cache::local::LocalCache;
-use crate::cache::redis::RedisCache;
 use crate::config::Config;
+use crate::infrastructure::cache::local::LocalCache;
+use crate::infrastructure::cache::redis::RedisCache;
 
 pub struct Cache {
     pub local: LocalCache,

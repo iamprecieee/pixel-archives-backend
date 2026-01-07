@@ -7,6 +7,7 @@ pub struct Config {
     pub server: ServerConfig,
     pub database: DatabaseConfig,
     pub cache: CacheConfig,
+    pub jwt: JwtConfig,
 }
 
 #[derive(Debug, Clone)]
@@ -35,6 +36,13 @@ pub struct CacheConfig {
     pub local_pixels_max_capacity: u64,
     pub local_pixels_short_ttl: u64,
     pub local_pixels_mid_ttl: u64,
+}
+
+#[derive(Debug, Clone)]
+pub struct JwtConfig {
+    pub secret: String,
+    pub access_token_ttl: Duration,
+    pub refresh_token_ttl: Duration,
 }
 
 impl Config {
@@ -67,7 +75,26 @@ impl Config {
                 local_pixels_short_ttl: env_or_parse("CACHE_LOCAL_PIXELS_SHORT_TTL", 5)?,
                 local_pixels_mid_ttl: env_or_parse("CACHE_LOCAL_PIXELS_MID_TTL", 10)?,
             },
+            jwt: JwtConfig {
+                secret: env_required("JWT_SECRET")?,
+                access_token_ttl: Duration::from_secs(
+                    env_or_parse("JWT_ACCESS_TTL_SECS", 900)?, // 15mins
+                ),
+                refresh_token_ttl: Duration::from_secs(
+                    env_or_parse("JWT_REFRESH_TTL_SECS", 3600)?, // 1hr
+                ),
+            },
         })
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        if self.jwt.secret.len() < 32 {
+            return Err(AppError::InvalidParams(
+                "JWT_SECRET must be at least 32 characters".into(),
+            ));
+        }
+
+        Ok(())
     }
 }
 

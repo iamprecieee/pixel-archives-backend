@@ -4,7 +4,7 @@ use moka::future::Cache;
 use tokio::sync::RwLock;
 use uuid::Uuid;
 
-use crate::{config::CacheConfig, db::entities::canvas};
+use crate::{config::CacheConfig, infrastructure::db::entities::canvas};
 use std::time::Duration;
 
 #[derive(Debug, Clone)]
