@@ -147,7 +147,7 @@ impl CanvasRepository {
         updater: F,
     ) -> Result<canvas::Model>
     where
-        F: FnOnce(&mut canvas::ActiveModel) -> (),
+        F: FnOnce(&mut canvas::ActiveModel),
     {
         let db_transaction = db.begin_transaction().await?;
 

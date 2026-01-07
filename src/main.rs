@@ -24,7 +24,7 @@ async fn main() -> Result<()> {
     db.run_migrations().await?;
     tracing::info!("Migrations completed");
 
-    let _cache = Cache::init(&config).await;
+    let _cache = Cache::init(&config).await?;
     tracing::info!("Cache initialized");
 
     Ok(())
