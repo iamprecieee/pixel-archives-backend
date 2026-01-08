@@ -35,7 +35,29 @@ impl UserRepository {
             .map_err(AppError::DatabaseError)
     }
 
-    pub async fn create_user<C: ConnectionTrait>(
+    pub async fn existing_user_by_wallet_or_username<C: ConnectionTrait + Send>(
+        db_connection: &C,
+        wallet: &str,
+        username: Option<&str>,
+    ) -> Result<(bool, bool)> {
+        let wallet_exists = User::find()
+            .filter(user::Column::WalletAddress.eq(wallet))
+            .one(db_connection)
+            .await?;
+
+        let username_exists = if let Some(username) = username {
+            User::find()
+                .filter(user::Column::Username.eq(username))
+                .one(db_connection)
+                .await?
+        } else {
+            None
+        };
+
+        Ok((wallet_exists.is_some(), username_exists.is_some()))
+    }
+
+    pub async fn create_user(
         db: &Database,
         wallet: &str,
         username: Option<String>,

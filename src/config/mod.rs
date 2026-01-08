@@ -14,6 +14,9 @@ pub struct Config {
 pub struct ServerConfig {
     pub host: String,
     pub port: u16,
+    pub cors_allowed_origins: Vec<String>,
+    pub max_concurrent_requests: usize,
+    pub server_public_url: String,
 }
 
 #[derive(Debug, Clone)]
@@ -53,6 +56,9 @@ impl Config {
             server: ServerConfig {
                 host: env_or_default("HOST", "127.0.0.1"),
                 port: env_or_parse("PORT", 8080)?,
+                cors_allowed_origins: env_list("CORS_ALLOWED_ORIGINS", vec!["".into()]),
+                max_concurrent_requests: env_or_parse("SERVER_MAX_CONCURRENT_REQUESTS", 100)?,
+                server_public_url: env_required("SERVER_PUBLIC_URL")?,
             },
             database: DatabaseConfig {
                 url: env_required("DATABASE_URL")?,
@@ -113,4 +119,14 @@ fn env_or_parse<T: FromStr>(key: &str, default: T) -> Result<T> {
 
 fn env_required(key: &str) -> Result<String> {
     env::var(key).map_err(|_| AppError::InvalidParams(format!("{key} is required")))
+}
+
+fn env_list(key: &str, default: Vec<String>) -> Vec<String> {
+    env::var(key)
+        .map(|val| {
+            val.split(',')
+                .map(|str_val| str_val.trim().to_string())
+                .collect()
+        })
+        .unwrap_or(default)
 }

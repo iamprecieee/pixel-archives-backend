@@ -19,6 +19,21 @@ pub struct JsonRpcErrorResponse {
     pub error: JsonRpcError,
 }
 
+impl JsonRpcErrorResponse {
+    pub fn new(error: JsonRpcError, id: Option<Value>) -> Self {
+        Self {
+            jsonrpc: "2.0",
+            id,
+            error,
+        }
+    }
+
+    pub fn from_error(err: &AppError, id: Option<Value>) -> Value {
+        serde_json::to_value(Self::new(err.user_safe_format(), id))
+            .expect("JsonRpcErrorResponse serialization failed")
+    }
+}
+
 #[derive(Debug, Error)]
 pub enum AppError {
     #[error("Invalid params - {0}")]
@@ -42,6 +57,9 @@ pub enum AppError {
     #[error("Serialization error - {0}")]
     SerializationError(#[from] serde_json::Error),
 
+    #[error("IO error - {0}")]
+    IoError(#[from] std::io::Error),
+
     #[error("Unauthorized")]
     Unauthorized,
 
@@ -53,6 +71,18 @@ pub enum AppError {
 
     #[error("Canvas name already exists")]
     CanvasNameExists,
+
+    #[error("User already exists")]
+    UserExists,
+
+    #[error("Username already exists")]
+    UsernameExists,
+
+    #[error("User not found")]
+    UserNotFound,
+
+    #[error("Method not found - {0}")]
+    MethodNotFound(String),
 }
 
 impl AppError {
@@ -69,11 +99,21 @@ impl AppError {
             Self::TokenExpired => -32021,
             Self::InvalidSignature => -32012,
             Self::CanvasNameExists => -32037,
+            Self::IoError(_) => -32080,
+            Self::UserExists => -32010,
+            Self::UsernameExists => -32013,
+            Self::UserNotFound => -32011,
+            Self::MethodNotFound(_) => -32601,
         }
     }
 
     pub fn user_safe_format(&self) -> JsonRpcError {
         match self {
+            Self::InvalidParams(msg) => JsonRpcError {
+                code: self.code(),
+                message: msg.clone(),
+                data: None,
+            },
             Self::RedisError(error) => {
                 tracing::error!(error = %error, "Redis error");
 
@@ -155,9 +195,35 @@ impl AppError {
                     data: None,
                 }
             }
-            _ => JsonRpcError {
+            Self::IoError(error) => {
+                tracing::error!(error = %error, "IO error");
+
+                JsonRpcError {
+                    code: self.code(),
+                    message: "Service temporarily unavailable. Please try again later.".to_string(),
+                    data: None,
+                }
+            }
+            Self::UserExists => JsonRpcError {
                 code: self.code(),
-                message: self.to_string(),
+                message: "An account with this wallet already exists. Please login instead."
+                    .to_string(),
+                data: None,
+            },
+            Self::UsernameExists => JsonRpcError {
+                code: self.code(),
+                message: "This username is already taken. Please choose a different one."
+                    .to_string(),
+                data: None,
+            },
+            Self::UserNotFound => JsonRpcError {
+                code: self.code(),
+                message: "No account found for this wallet. Please register first.".to_string(),
+                data: None,
+            },
+            Self::MethodNotFound(method) => JsonRpcError {
+                code: self.code(),
+                message: format!("Method '{}' not found", method),
                 data: None,
             },
         }
