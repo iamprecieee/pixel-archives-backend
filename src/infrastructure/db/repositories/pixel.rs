@@ -22,13 +22,12 @@ impl PixelRepository {
         x: i16,
         y: i16,
     ) -> Result<Option<pixel::Model>> {
-        Pixel::find()
+        Ok(Pixel::find()
             .filter(pixel::Column::CanvasId.eq(canvas_id))
             .filter(pixel::Column::X.eq(x))
             .filter(pixel::Column::Y.eq(y))
             .one(db_connection)
-            .await
-            .map_err(AppError::DatabaseError)
+            .await?)
     }
 
     // when we need to fetch all pixels of a canvas
@@ -36,11 +35,10 @@ impl PixelRepository {
         db_connection: &C,
         canvas_id: Uuid,
     ) -> Result<Vec<pixel::Model>> {
-        Pixel::find()
+        Ok(Pixel::find()
             .filter(pixel::Column::CanvasId.eq(canvas_id))
             .all(db_connection)
-            .await
-            .map_err(AppError::DatabaseError)
+            .await?)
     }
 
     pub async fn upsert_pixel(
@@ -52,10 +50,9 @@ impl PixelRepository {
         owner_id: Option<Uuid>,
         price_lamports: Option<i64>,
     ) -> Result<pixel::Model> {
-        let db_connection = db.get_connection();
         let db_transaction = db.begin_transaction().await?;
         let now = Utc::now();
-        let existing_pixel = Self::find_pixel(db_connection, canvas_id, x, y).await?;
+        let existing_pixel = Self::find_pixel(db.get_connection(), canvas_id, x, y).await?;
 
         if let Some(existing_pixel) = existing_pixel {
             let mut active: pixel::ActiveModel = existing_pixel.into();
@@ -71,15 +68,9 @@ impl PixelRepository {
             }
             active.updated_at = Set(now);
 
-            let updated_pixel = active
-                .update(&db_transaction)
-                .await
-                .map_err(AppError::DatabaseError)?;
+            let updated_pixel = active.update(&db_transaction).await?;
 
-            db_transaction
-                .commit()
-                .await
-                .map_err(AppError::DatabaseError)?;
+            db_transaction.commit().await?;
 
             Ok(updated_pixel)
         } else {
@@ -98,29 +89,21 @@ impl PixelRepository {
                 updated_at: Set(now),
             };
 
-            let inserted_pixel = pixel
-                .insert(&db_transaction)
-                .await
-                .map_err(AppError::DatabaseError)?;
+            let inserted_pixel = pixel.insert(&db_transaction).await?;
 
-            db_transaction
-                .commit()
-                .await
-                .map_err(AppError::DatabaseError)?;
+            db_transaction.commit().await?;
 
             Ok(inserted_pixel)
         }
     }
 
-    pub async fn initialize_canvas_pixels(
-        db: &Database,
+    pub async fn initialize_canvas_pixels<C: ConnectionTrait>(
+        db_connection: &C,
         canvas_id: Uuid,
         width: u8,
         height: u8,
         initial_color: i16,
     ) -> Result<()> {
-        let db_transaction = db.begin_transaction().await?;
-
         let now = Utc::now();
         let mut pixels = Vec::with_capacity((width as usize) * (height as usize));
 
@@ -140,16 +123,8 @@ impl PixelRepository {
         }
 
         if !pixels.is_empty() {
-            Pixel::insert_many(pixels)
-                .exec(&db_transaction)
-                .await
-                .map_err(AppError::DatabaseError)?;
+            Pixel::insert_many(pixels).exec(db_connection).await?;
         }
-
-        db_transaction
-            .commit()
-            .await
-            .map_err(AppError::DatabaseError)?;
 
         Ok(())
     }

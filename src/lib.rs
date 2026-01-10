@@ -14,14 +14,19 @@ use tokio::signal;
 use tower::limit::ConcurrencyLimitLayer;
 use tower_http::cors::CorsLayer;
 
-use crate::services::auth::JwtService;
+use crate::{
+    config::Config,
+    infrastructure::{cache::Cache, db::Database},
+    services::{auth::JwtService, solana::SolanaClient},
+};
 
 #[derive(Clone)]
 pub struct AppState {
-    pub config: Arc<config::Config>,
-    pub db: Arc<infrastructure::db::Database>,
-    pub cache: Arc<infrastructure::cache::Cache>,
+    pub config: Arc<Config>,
+    pub db: Arc<Database>,
+    pub cache: Arc<Cache>,
     pub jwt_service: Arc<JwtService>,
+    pub solana_client: Arc<SolanaClient>,
 }
 
 pub fn build_router(state: AppState) -> Router {

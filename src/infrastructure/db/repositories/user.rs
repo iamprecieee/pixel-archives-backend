@@ -1,5 +1,5 @@
 use crate::{
-    error::{AppError, Result},
+    error::Result,
     infrastructure::db::{
         Database,
         entities::{User, user},
@@ -18,21 +18,17 @@ impl UserRepository {
         db_connection: &C,
         id: Uuid,
     ) -> Result<Option<user::Model>> {
-        User::find_by_id(id)
-            .one(db_connection)
-            .await
-            .map_err(AppError::DatabaseError)
+        Ok(User::find_by_id(id).one(db_connection).await?)
     }
 
     pub async fn find_user_by_wallet<C: ConnectionTrait>(
         db_connection: &C,
         wallet: &str,
     ) -> Result<Option<user::Model>> {
-        User::find()
+        Ok(User::find()
             .filter(user::Column::WalletAddress.eq(wallet))
             .one(db_connection)
-            .await
-            .map_err(AppError::DatabaseError)
+            .await?)
     }
 
     pub async fn existing_user_by_wallet_or_username<C: ConnectionTrait + Send>(
@@ -72,15 +68,9 @@ impl UserRepository {
             created_at: Set(now),
         };
 
-        let created_user = user
-            .insert(&db_transaction)
-            .await
-            .map_err(AppError::DatabaseError)?;
+        let created_user = user.insert(&db_transaction).await?;
 
-        db_transaction
-            .commit()
-            .await
-            .map_err(AppError::DatabaseError)?;
+        db_transaction.commit().await?;
 
         Ok(created_user)
     }

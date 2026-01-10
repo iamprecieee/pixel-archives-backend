@@ -1,4 +1,5 @@
 use sea_orm::entity::prelude::*;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, DeriveEntityModel)]
 #[sea_orm(table_name = "canvases")]
@@ -33,7 +34,7 @@ pub struct Model {
     pub minted_at: Option<DateTimeUtc>,
 }
 
-#[derive(Clone, Debug, Default, EnumIter, DeriveActiveEnum, PartialEq)]
+#[derive(Clone, Debug, Default, EnumIter, DeriveActiveEnum, PartialEq, Serialize, Deserialize)]
 #[sea_orm(rs_type = "String", db_type = "String(StringLen::None)")]
 pub enum CanvasState {
     #[default]

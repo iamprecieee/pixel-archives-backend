@@ -83,6 +83,30 @@ pub enum AppError {
 
     #[error("Method not found - {0}")]
     MethodNotFound(String),
+
+    #[error("Not a collaborator on this canvas")]
+    NotCanvasCollaborator,
+
+    #[error("Not canvas owner")]
+    NotCanvasOwner,
+
+    #[error("Pixel locked")]
+    PixelLocked,
+
+    #[error("Solana RPC error - {0}")]
+    SolanaRpc(String),
+
+    #[error("Transaction failed - {0}")]
+    TransactionFailed(String),
+
+    #[error("Not a collaborator on this canvas")]
+    NotCollaborator,
+
+    #[error("Cooldown active - {remaining_ms}ms remaining")]
+    CooldownActive { remaining_ms: u64 },
+
+    #[error("Bid too low - minimum is {min_lamports} lamports")]
+    BidTooLow { min_lamports: u64 },
 }
 
 impl AppError {
@@ -104,6 +128,14 @@ impl AppError {
             Self::UsernameExists => -32013,
             Self::UserNotFound => -32011,
             Self::MethodNotFound(_) => -32601,
+            Self::NotCanvasCollaborator => -32035,
+            Self::NotCanvasOwner => -32034,
+            Self::PixelLocked => -32040,
+            Self::SolanaRpc(_) => -32061,
+            Self::TransactionFailed(_) => -32060,
+            Self::NotCollaborator => -32035,
+            Self::CooldownActive { .. } => -32042,
+            Self::BidTooLow { .. } => -32041,
         }
     }
 
@@ -160,6 +192,24 @@ impl AppError {
                     data: None,
                 }
             }
+            Self::SolanaRpc(error) => {
+                tracing::error!(error = %error, "Solana RPC error");
+
+                JsonRpcError {
+                    code: self.code(),
+                    message: "Network error connecting to Solana. Please try again.".to_string(),
+                    data: None,
+                }
+            }
+            Self::TransactionFailed(error) => {
+                tracing::error!(error = %error, "Transaction failed");
+
+                JsonRpcError {
+                    code: self.code(),
+                    message: "Transaction failed. Please try again.".to_string(),
+                    data: None,
+                }
+            }
             Self::Unauthorized => JsonRpcError {
                 code: self.code(),
                 message: "Please login to continue.".to_string(),
@@ -176,25 +226,11 @@ impl AppError {
                     .to_string(),
                 data: None,
             },
-            Self::CanvasNotFound => JsonRpcError {
-                code: self.code(),
-                message: "Canvas not found".to_string(),
-                data: None,
-            },
             Self::InvalidCanvasStateTransition => JsonRpcError {
                 code: self.code(),
                 message: "Invalid canvas state transition".to_string(),
                 data: None,
             },
-            Self::CanvasNameExists => {
-                tracing::error!("Canvas name already exists");
-
-                JsonRpcError {
-                    code: self.code(),
-                    message: "Canvas name already exists".to_string(),
-                    data: None,
-                }
-            }
             Self::IoError(error) => {
                 tracing::error!(error = %error, "IO error");
 
@@ -224,6 +260,27 @@ impl AppError {
             Self::MethodNotFound(method) => JsonRpcError {
                 code: self.code(),
                 message: format!("Method '{}' not found", method),
+                data: None,
+            },
+            Self::CooldownActive { remaining_ms } => JsonRpcError {
+                code: self.code(),
+                message: format!(
+                    "Please wait {}s before placing another pixel.",
+                    remaining_ms / 1000
+                ),
+                data: Some(serde_json::json!({ "remaining_ms": remaining_ms })),
+            },
+            Self::BidTooLow { min_lamports } => JsonRpcError {
+                code: self.code(),
+                message: format!(
+                    "Bid too low. Minimum is {} SOL.",
+                    (*min_lamports as f64) / 1_000_000_000.0
+                ),
+                data: Some(serde_json::json!({ "min_lamports": min_lamports })),
+            },
+            _ => JsonRpcError {
+                code: self.code(),
+                message: self.to_string(),
                 data: None,
             },
         }

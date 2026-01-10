@@ -35,8 +35,7 @@ impl RedisCache {
 
         let _: String = redis::cmd("PING")
             .query_async(&mut *redis_connection)
-            .await
-            .map_err(AppError::RedisError)?;
+            .await?;
 
         Ok(Self { pool })
     }
@@ -83,8 +82,26 @@ impl RedisCache {
             .arg("EX")
             .arg(ttl.as_secs())
             .query_async(&mut *redis_connection)
+            .await?;
+
+        Ok(result.is_some())
+    }
+
+    pub async fn setnx_with_value(&self, key: &str, value: &str, ttl: Duration) -> Result<bool> {
+        let mut redis_connection = self
+            .pool
+            .get()
             .await
-            .map_err(AppError::RedisError)?;
+            .map_err(|e| AppError::InternalServerError(e.to_string()))?;
+
+        let result: Option<String> = redis::cmd("SET")
+            .arg(key)
+            .arg(value)
+            .arg("NX")
+            .arg("EX")
+            .arg(ttl.as_secs())
+            .query_async(&mut *redis_connection)
+            .await?;
 
         Ok(result.is_some())
     }

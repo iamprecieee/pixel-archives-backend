@@ -5,7 +5,7 @@ use pixel_archives::{
     config::Config,
     error::Result,
     infrastructure::{cache::Cache, db::Database},
-    services::auth::JwtService,
+    services::{auth::JwtService, solana::SolanaClient},
     shutdown_signal,
 };
 use tokio::net::TcpListener;
@@ -36,11 +36,15 @@ async fn main() -> Result<()> {
     let jwt_service = JwtService::new(&config.jwt);
     tracing::info!("JWT service initialized");
 
+    let solana_client = SolanaClient::initialize(&config.solana);
+    tracing::info!("Solana client initialized");
+
     let state = AppState {
         config: Arc::new(config.clone()),
         db: Arc::new(db),
         cache: Arc::new(cache),
         jwt_service: Arc::new(jwt_service),
+        solana_client: Arc::new(solana_client),
     };
 
     let app = build_router(state);

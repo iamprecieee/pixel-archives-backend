@@ -1,7 +1,7 @@
 use chrono::Utc;
 use sea_orm::{
     ActiveModelTrait, ActiveValue::Set, ColumnTrait, ConnectionTrait, EntityTrait, JoinType,
-    QueryFilter, QueryOrder, QuerySelect, RelationTrait,
+    PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, RelationTrait,
 };
 use uuid::Uuid;
 
@@ -63,15 +63,30 @@ impl CanvasRepository {
             .filter(canvas::Column::OwnerId.ne(user_id))
             .order_by_desc(canvas::Column::CreatedAt)
             .all(db_connection)
-            .await
-            .map_err(AppError::DatabaseError)?;
+            .await?;
 
         Ok(canvases)
     }
 
-    pub async fn create_canvas(db: &Database, owner_id: Uuid, name: &str) -> Result<canvas::Model> {
-        let db_transaction = db.begin_transaction().await?;
+    pub async fn exists_by_name_and_owner<C: ConnectionTrait>(
+        db_connection: &C,
+        owner_id: Uuid,
+        canvas_name: &str,
+    ) -> Result<bool> {
+        let count = Canvas::find()
+            .filter(canvas::Column::OwnerId.eq(owner_id))
+            .filter(canvas::Column::Name.eq(canvas_name))
+            .count(db_connection)
+            .await?;
 
+        Ok(count > 0)
+    }
+
+    pub async fn create_canvas<C: ConnectionTrait>(
+        db_connection: &C,
+        owner_id: Uuid,
+        name: &str,
+    ) -> Result<canvas::Model> {
         let now = Utc::now();
         let invite_code = generate_invite_code();
 
@@ -89,37 +104,14 @@ impl CanvasRepository {
             minted_at: Set(None),
         };
 
-        let created = canvas
-            .insert(&db_transaction)
-            .await
-            .map_err(AppError::DatabaseError)?;
-
-        let collaborator = canvas_collaborator::ActiveModel {
-            canvas_id: Set(created.id),
-            user_id: Set(owner_id),
-            joined_at: Set(now),
-        };
-
-        collaborator
-            .insert(&db_transaction)
-            .await
-            .map_err(AppError::DatabaseError)?;
-
-        db_transaction
-            .commit()
-            .await
-            .map_err(AppError::DatabaseError)?;
-
-        Ok(created)
+        Ok(canvas.insert(db_connection).await?)
     }
 
-    pub async fn add_canvas_collaborator(
-        db: &Database,
+    pub async fn add_canvas_collaborator<C: ConnectionTrait>(
+        db_connection: &C,
         canvas_id: Uuid,
         user_id: Uuid,
     ) -> Result<()> {
-        let db_transaction = db.begin_transaction().await?;
-
         let now = Utc::now();
         let collaborator = canvas_collaborator::ActiveModel {
             canvas_id: Set(canvas_id),
@@ -127,17 +119,22 @@ impl CanvasRepository {
             joined_at: Set(now),
         };
 
-        collaborator
-            .insert(&db_transaction)
-            .await
-            .map_err(AppError::DatabaseError)?;
-
-        db_transaction
-            .commit()
-            .await
-            .map_err(AppError::DatabaseError)?;
+        collaborator.insert(db_connection).await?;
 
         Ok(())
+    }
+
+    pub async fn is_canvas_collaborator<C: ConnectionTrait>(
+        db_connection: &C,
+        canvas_id: Uuid,
+        user_id: Uuid,
+    ) -> Result<bool> {
+        let count = CanvasCollaborator::find()
+            .filter(canvas_collaborator::Column::CanvasId.eq(canvas_id))
+            .filter(canvas_collaborator::Column::UserId.eq(user_id))
+            .count(db_connection)
+            .await?;
+        Ok(count > 0)
     }
 
     pub async fn update_canvas_state<F>(
@@ -154,8 +151,7 @@ impl CanvasRepository {
         let canvas = Canvas::find_by_id(id)
             .lock_exclusive()
             .one(&db_transaction)
-            .await
-            .map_err(AppError::DatabaseError)?
+            .await?
             .ok_or(AppError::CanvasNotFound)?;
 
         if !canvas.state.is_valid_transition(&state) {
@@ -168,15 +164,9 @@ impl CanvasRepository {
 
         updater(&mut active);
 
-        let updated_canvas = active
-            .update(&db_transaction)
-            .await
-            .map_err(AppError::DatabaseError)?;
+        let updated_canvas = active.update(&db_transaction).await?;
 
-        db_transaction
-            .commit()
-            .await
-            .map_err(AppError::DatabaseError)?;
+        db_transaction.commit().await?;
 
         Ok(updated_canvas)
     }
@@ -191,22 +181,15 @@ impl CanvasRepository {
         let canvas = Canvas::find_by_id(id)
             .lock_exclusive()
             .one(&db_transaction)
-            .await
-            .map_err(AppError::DatabaseError)?
+            .await?
             .ok_or(AppError::CanvasNotFound)?;
 
         let mut active: canvas::ActiveModel = canvas.into();
         active.total_escrowed = Set(escrow_lamports);
 
-        let updated_canvas = active
-            .update(&db_transaction)
-            .await
-            .map_err(AppError::DatabaseError)?;
+        let updated_canvas = active.update(&db_transaction).await?;
 
-        db_transaction
-            .commit()
-            .await
-            .map_err(AppError::DatabaseError)?;
+        db_transaction.commit().await?;
 
         Ok(updated_canvas)
     }
@@ -217,24 +200,16 @@ impl CanvasRepository {
         Pixel::delete_many()
             .filter(pixel::Column::CanvasId.eq(id))
             .exec(&db_transaction)
-            .await
-            .map_err(AppError::DatabaseError)?;
+            .await?;
 
         CanvasCollaborator::delete_many()
             .filter(canvas_collaborator::Column::CanvasId.eq(id))
             .exec(&db_transaction)
-            .await
-            .map_err(AppError::DatabaseError)?;
+            .await?;
 
-        Canvas::delete_by_id(id)
-            .exec(&db_transaction)
-            .await
-            .map_err(AppError::DatabaseError)?;
+        Canvas::delete_by_id(id).exec(&db_transaction).await?;
 
-        db_transaction
-            .commit()
-            .await
-            .map_err(AppError::DatabaseError)?;
+        db_transaction.commit().await?;
 
         Ok(())
     }

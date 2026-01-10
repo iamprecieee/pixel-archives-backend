@@ -8,6 +8,8 @@ pub struct Config {
     pub database: DatabaseConfig,
     pub cache: CacheConfig,
     pub jwt: JwtConfig,
+    pub canvas: CanvasConfig,
+    pub solana: SolanaConfig,
 }
 
 #[derive(Debug, Clone)]
@@ -39,6 +41,8 @@ pub struct CacheConfig {
     pub local_pixels_max_capacity: u64,
     pub local_pixels_short_ttl: u64,
     pub local_pixels_mid_ttl: u64,
+    pub redis_cache_mid_ttl: u64,
+    pub redis_cache_short_ttl: u64,
 }
 
 #[derive(Debug, Clone)]
@@ -46,6 +50,26 @@ pub struct JwtConfig {
     pub secret: String,
     pub access_token_ttl: Duration,
     pub refresh_token_ttl: Duration,
+}
+
+#[derive(Debug, Clone)]
+pub struct CanvasConfig {
+    pub max_name_length: u8,
+    pub width: u8,
+    pub height: u8,
+    pub color_count: u8,
+    pub min_bid_lamports: u64,
+    pub cooldown_ms: u64,
+    pub max_collaborators: usize,
+    pub lock_ms: u64,
+}
+
+#[derive(Debug, Clone)]
+pub struct SolanaConfig {
+    pub rpc_url: String,
+    pub program_id: String,
+    pub commitment: String,
+    pub blockhash_ttl: u64,
 }
 
 impl Config {
@@ -80,6 +104,8 @@ impl Config {
                 local_pixels_max_capacity: env_or_parse("CACHE_LOCAL_PIXELS_MAX_CAPACITY", 100)?,
                 local_pixels_short_ttl: env_or_parse("CACHE_LOCAL_PIXELS_SHORT_TTL", 5)?,
                 local_pixels_mid_ttl: env_or_parse("CACHE_LOCAL_PIXELS_MID_TTL", 10)?,
+                redis_cache_short_ttl: env_or_parse("CACHE_REDIS_SHORT_TTL", 120)?,
+                redis_cache_mid_ttl: env_or_parse("CACHE_REDIS_MID_TTL", 300)?,
             },
             jwt: JwtConfig {
                 secret: env_required("JWT_SECRET")?,
@@ -90,6 +116,22 @@ impl Config {
                     env_or_parse("JWT_REFRESH_TTL_SECS", 3600)?, // 1hr
                 ),
             },
+            canvas: CanvasConfig {
+                max_name_length: env_or_parse("MAX_CANVAS_NAME_LENGTH", 32)?,
+                width: env_or_parse("CANVAS_WIDTH", 32)?,
+                height: env_or_parse("CANVAS_HEIGHT", 32)?,
+                color_count: env_or_parse("CANVAS_COLORS", 64)?,
+                min_bid_lamports: env_or_parse("MIN_BID_LAMPORTS", 1_000_000)?, // 0.001 SOL
+                cooldown_ms: env_or_parse("PIXEL_COOLDOWN_MS", 5000)?,
+                max_collaborators: env_or_parse("MAX_COLLABORATORS", 50)?,
+                lock_ms: env_or_parse("PIXEL_LOCK_MS", 60000)?,
+            },
+            solana: SolanaConfig {
+                rpc_url: env_required("SOLANA_RPC_URL")?,
+                program_id: env_required("SOLANA_PROGRAM_ID")?,
+                commitment: env_or("SOLANA_COMMITMENT", "confirmed"),
+                blockhash_ttl: env_or_parse("SOLANA_BLOCKHASH_TTL", 15)?,
+            },
         })
     }
 
@@ -97,6 +139,18 @@ impl Config {
         if self.jwt.secret.len() < 32 {
             return Err(AppError::InvalidParams(
                 "JWT_SECRET must be at least 32 characters".into(),
+            ));
+        }
+
+        if self.canvas.width == 0 || self.canvas.height == 0 {
+            return Err(AppError::InvalidParams(
+                "Canvas dimensions must be positive".into(),
+            ));
+        }
+
+        if self.canvas.color_count == 0 {
+            return Err(AppError::InvalidParams(
+                "Color count must be positive".into(),
             ));
         }
 
@@ -129,4 +183,8 @@ fn env_list(key: &str, default: Vec<String>) -> Vec<String> {
                 .collect()
         })
         .unwrap_or(default)
+}
+
+fn env_or(key: &str, default: &str) -> String {
+    env::var(key).unwrap_or_else(|_| default.to_string())
 }

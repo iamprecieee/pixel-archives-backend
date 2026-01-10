@@ -16,6 +16,7 @@ pub struct CachedPixel {
     pub price_lamports: i64,
 }
 
+#[derive(Clone)]
 pub struct LocalCache {
     canvas_cache: Cache<Uuid, Arc<canvas::Model>>,
     pixels_cache: Cache<Uuid, Arc<RwLock<Vec<CachedPixel>>>>,
