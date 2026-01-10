@@ -275,6 +275,8 @@ pub async fn confirm_pixel_bid(
     )
     .await?;
 
+    let cache_key = CacheKey::canvas_pixels(&confirm_request.canvas_id);
+
     let _ = tokio::join!(
         state.cache.local.update_pixel(
             &confirm_request.canvas_id,
@@ -284,6 +286,7 @@ pub async fn confirm_pixel_bid(
             Some(confirm_request.user_id),
             confirm_request.bid_lamports
         ),
+        state.cache.redis.delete(&cache_key),
         state.cache.redis.delete(&lock_key),
     );
 

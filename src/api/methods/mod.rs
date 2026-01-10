@@ -6,6 +6,8 @@ use chrono::Utc;
 use crate::error::{AppError, Result};
 
 pub mod auth;
+pub mod canvas;
+pub mod pixel;
 
 fn validate_wallet_address(wallet: &str) -> Result<()> {
     let decoded = bs58::decode(wallet)

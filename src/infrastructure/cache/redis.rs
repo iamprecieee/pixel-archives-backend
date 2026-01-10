@@ -94,9 +94,10 @@ impl RedisCache {
             .await
             .map_err(|e| AppError::InternalServerError(e.to_string()))?;
 
+        let serialized_value = serde_json::to_string(value)?;
         let result: Option<String> = redis::cmd("SET")
             .arg(key)
-            .arg(value)
+            .arg(serialized_value)
             .arg("NX")
             .arg("EX")
             .arg(ttl.as_secs())

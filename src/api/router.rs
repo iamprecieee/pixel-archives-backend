@@ -12,7 +12,13 @@ use crate::{
     AppState,
     api::{
         methods::{self, extract_cookie},
-        types::{AuthOperation, AuthParams, JsonRpcRequest, JsonRpcResponse, SessionParams},
+        types::{
+            AuthOperation, AuthParams, CancelPixelBidParams, CancelPublishCanvasParams,
+            ConfirmPixelBidParams, ConfirmPublishCanvasParams, CreateCanvasParams,
+            DeleteCanvasParams, GetCanvasParams, JoinCanvasParams, JsonRpcRequest, JsonRpcResponse,
+            ListCanvasParams, PaintPixelParams, PlacePixelBidParams, PublishCanvasParams,
+            SessionParams,
+        },
     },
     error::{AppError, JsonRpcErrorResponse},
     services::auth::{
@@ -199,7 +205,104 @@ async fn dispatch_method(method: &str, params: Value, state: AppState) -> Result
             let result = methods::auth::refresh_user_token(session_params).await?;
             serde_json::to_value(result).map_err(AppError::from)
         }
+        "canvas.create" => {
+            let mut create_params: CreateCanvasParams = serde_json::from_value(params)
+                .map_err(|e| AppError::InvalidParams(e.to_string()))?;
+            create_params.state = Some(state);
 
+            let result = methods::canvas::create_canvas(create_params).await?;
+            serde_json::to_value(result).map_err(AppError::from)
+        }
+        "canvas.list" => {
+            let mut list_params: ListCanvasParams = serde_json::from_value(params)
+                .map_err(|e| AppError::InvalidParams(e.to_string()))?;
+            list_params.state = Some(state);
+
+            let result = methods::canvas::list_canvas(list_params).await?;
+            serde_json::to_value(result).map_err(AppError::from)
+        }
+        "canvas.get" => {
+            let mut get_params: GetCanvasParams = serde_json::from_value(params)
+                .map_err(|e| AppError::InvalidParams(e.to_string()))?;
+            get_params.state = Some(state);
+
+            let result = methods::canvas::get_canvas(get_params).await?;
+            serde_json::to_value(result).map_err(AppError::from)
+        }
+        "canvas.join" => {
+            let mut join_params: JoinCanvasParams = serde_json::from_value(params)
+                .map_err(|e| AppError::InvalidParams(e.to_string()))?;
+            join_params.state = Some(state);
+
+            let result = methods::canvas::join_canvas(join_params).await?;
+            serde_json::to_value(result).map_err(AppError::from)
+        }
+        "canvas.publish" => {
+            let mut publish_params: PublishCanvasParams = serde_json::from_value(params)
+                .map_err(|e| AppError::InvalidParams(e.to_string()))?;
+            publish_params.state = Some(state);
+
+            let result = methods::canvas::publish_canvas(publish_params).await?;
+            serde_json::to_value(result).map_err(AppError::from)
+        }
+        "canvas.confirmPublish" => {
+            let mut confirm_publish_params: ConfirmPublishCanvasParams =
+                serde_json::from_value(params)
+                    .map_err(|e| AppError::InvalidParams(e.to_string()))?;
+            confirm_publish_params.state = Some(state);
+
+            let result = methods::canvas::confirm_publish_canvas(confirm_publish_params).await?;
+            serde_json::to_value(result).map_err(AppError::from)
+        }
+        "canvas.cancelPublish" => {
+            let mut cancel_publish_params: CancelPublishCanvasParams =
+                serde_json::from_value(params)
+                    .map_err(|e| AppError::InvalidParams(e.to_string()))?;
+            cancel_publish_params.state = Some(state);
+
+            let result = methods::canvas::cancel_publish_canvas(cancel_publish_params).await?;
+            serde_json::to_value(result).map_err(AppError::from)
+        }
+        "canvas.delete" => {
+            let mut delete_params: DeleteCanvasParams = serde_json::from_value(params)
+                .map_err(|e| AppError::InvalidParams(e.to_string()))?;
+            delete_params.state = Some(state);
+
+            let result = methods::canvas::delete_canvas(delete_params).await?;
+            serde_json::to_value(result).map_err(AppError::from)
+        }
+        "pixel.place" => {
+            let mut place_params: PlacePixelBidParams = serde_json::from_value(params)
+                .map_err(|e| AppError::InvalidParams(e.to_string()))?;
+            place_params.state = Some(state);
+
+            let result = methods::pixel::place_pixel_bid(place_params).await?;
+            serde_json::to_value(result).map_err(AppError::from)
+        }
+        "pixel.confirm" => {
+            let mut confirm_params: ConfirmPixelBidParams = serde_json::from_value(params)
+                .map_err(|e| AppError::InvalidParams(e.to_string()))?;
+            confirm_params.state = Some(state);
+
+            let result = methods::pixel::confirm_pixel_bid(confirm_params).await?;
+            serde_json::to_value(result).map_err(AppError::from)
+        }
+        "pixel.paint" => {
+            let mut paint_params: PaintPixelParams = serde_json::from_value(params)
+                .map_err(|e| AppError::InvalidParams(e.to_string()))?;
+            paint_params.state = Some(state);
+
+            let result = methods::pixel::paint_pixel(paint_params).await?;
+            serde_json::to_value(result).map_err(AppError::from)
+        }
+        "pixel.cancel" => {
+            let mut cancel_params: CancelPixelBidParams = serde_json::from_value(params)
+                .map_err(|e| AppError::InvalidParams(e.to_string()))?;
+            cancel_params.state = Some(state);
+
+            let result = methods::pixel::cancel_pixel_bid(cancel_params).await?;
+            serde_json::to_value(result).map_err(AppError::from)
+        }
         _ => Err(AppError::MethodNotFound(method.to_string())),
     }
 }
