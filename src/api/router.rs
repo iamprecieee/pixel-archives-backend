@@ -170,6 +170,19 @@ fn build_json_response(
 }
 
 async fn dispatch_method(method: &str, params: Value, state: AppState) -> Result<Value, AppError> {
+    if method.starts_with("auth.") {
+        return dispatch_auth(method, params, state).await;
+    }
+    if method.starts_with("canvas.") {
+        return dispatch_canvas(method, params, state).await;
+    }
+    if method.starts_with("pixel.") {
+        return dispatch_pixel(method, params, state).await;
+    }
+    Err(AppError::MethodNotFound(method.to_string()))
+}
+
+async fn dispatch_auth(method: &str, params: Value, state: AppState) -> Result<Value, AppError> {
     match method {
         "auth.register" => {
             let mut auth_params: AuthParams = serde_json::from_value(params)
@@ -205,6 +218,12 @@ async fn dispatch_method(method: &str, params: Value, state: AppState) -> Result
             let result = methods::auth::refresh_user_token(session_params).await?;
             serde_json::to_value(result).map_err(AppError::from)
         }
+        _ => Err(AppError::MethodNotFound(method.to_string())),
+    }
+}
+
+async fn dispatch_canvas(method: &str, params: Value, state: AppState) -> Result<Value, AppError> {
+    match method {
         "canvas.create" => {
             let mut create_params: CreateCanvasParams = serde_json::from_value(params)
                 .map_err(|e| AppError::InvalidParams(e.to_string()))?;
@@ -246,21 +265,19 @@ async fn dispatch_method(method: &str, params: Value, state: AppState) -> Result
             serde_json::to_value(result).map_err(AppError::from)
         }
         "canvas.confirmPublish" => {
-            let mut confirm_publish_params: ConfirmPublishCanvasParams =
-                serde_json::from_value(params)
-                    .map_err(|e| AppError::InvalidParams(e.to_string()))?;
-            confirm_publish_params.state = Some(state);
+            let mut confirm_params: ConfirmPublishCanvasParams = serde_json::from_value(params)
+                .map_err(|e| AppError::InvalidParams(e.to_string()))?;
+            confirm_params.state = Some(state);
 
-            let result = methods::canvas::confirm_publish_canvas(confirm_publish_params).await?;
+            let result = methods::canvas::confirm_publish_canvas(confirm_params).await?;
             serde_json::to_value(result).map_err(AppError::from)
         }
         "canvas.cancelPublish" => {
-            let mut cancel_publish_params: CancelPublishCanvasParams =
-                serde_json::from_value(params)
-                    .map_err(|e| AppError::InvalidParams(e.to_string()))?;
-            cancel_publish_params.state = Some(state);
+            let mut cancel_params: CancelPublishCanvasParams = serde_json::from_value(params)
+                .map_err(|e| AppError::InvalidParams(e.to_string()))?;
+            cancel_params.state = Some(state);
 
-            let result = methods::canvas::cancel_publish_canvas(cancel_publish_params).await?;
+            let result = methods::canvas::cancel_publish_canvas(cancel_params).await?;
             serde_json::to_value(result).map_err(AppError::from)
         }
         "canvas.delete" => {
@@ -271,6 +288,12 @@ async fn dispatch_method(method: &str, params: Value, state: AppState) -> Result
             let result = methods::canvas::delete_canvas(delete_params).await?;
             serde_json::to_value(result).map_err(AppError::from)
         }
+        _ => Err(AppError::MethodNotFound(method.to_string())),
+    }
+}
+
+async fn dispatch_pixel(method: &str, params: Value, state: AppState) -> Result<Value, AppError> {
+    match method {
         "pixel.place" => {
             let mut place_params: PlacePixelBidParams = serde_json::from_value(params)
                 .map_err(|e| AppError::InvalidParams(e.to_string()))?;
