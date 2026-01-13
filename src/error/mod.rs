@@ -1,3 +1,7 @@
+use axum::{
+    http::StatusCode,
+    response::{IntoResponse, Response},
+};
 use deadpool_redis::redis;
 use serde::Serialize;
 use serde_json::Value;
@@ -294,3 +298,31 @@ impl From<&AppError> for JsonRpcError {
 }
 
 pub type Result<T> = std::result::Result<T, AppError>;
+
+impl IntoResponse for AppError {
+    fn into_response(self) -> Response {
+        let status = match &self {
+            Self::Unauthorized | Self::TokenExpired | Self::InvalidSignature => {
+                StatusCode::UNAUTHORIZED
+            }
+            Self::UserNotFound | Self::CanvasNotFound => StatusCode::NOT_FOUND,
+            Self::UserExists | Self::UsernameExists | Self::CanvasNameExists => {
+                StatusCode::CONFLICT
+            }
+            Self::InvalidParams(_) | Self::InvalidCanvasStateTransition => StatusCode::BAD_REQUEST,
+            Self::NotCanvasCollaborator | Self::NotCanvasOwner | Self::NotCollaborator => {
+                StatusCode::FORBIDDEN
+            }
+            Self::CooldownActive { .. } | Self::BidTooLow { .. } | Self::PixelLocked => {
+                StatusCode::TOO_MANY_REQUESTS
+            }
+            _ => StatusCode::INTERNAL_SERVER_ERROR,
+        };
+
+        let json_error = self.user_safe_format();
+        let body = serde_json::to_string(&json_error)
+            .unwrap_or_else(|_| r#"{"code":-32603,"message":"Internal server error"}"#.to_string());
+
+        (status, [("content-type", "application/json")], body).into_response()
+    }
+}

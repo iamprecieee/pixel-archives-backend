@@ -13,6 +13,7 @@ use crate::{
         CachedPixelData, CanvasInfo, CanvasWithPixels, JoinCanvasResult, OwnedCanvasPixelInfo,
         UserCanvases,
     },
+    ws::types::RoomCanvasUpdate,
 };
 
 pub async fn join_canvas(
@@ -36,6 +37,11 @@ pub async fn join_canvas(
 
     CanvasRepository::add_canvas_collaborator(state.db.get_connection(), canvas.id, user_id)
         .await?;
+
+    state
+        .ws_rooms
+        .broadcast(&canvas.id, RoomCanvasUpdate::UserJoined { user_id })
+        .await;
 
     Ok(JoinCanvasResult {
         canvas_id: canvas.id,

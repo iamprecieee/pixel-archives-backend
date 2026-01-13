@@ -21,6 +21,7 @@ use crate::{
         },
         solana,
     },
+    ws::types::RoomCanvasUpdate,
 };
 
 pub async fn create_canvas(
@@ -182,6 +183,16 @@ pub async fn confirm_canvas_publish(
         state.cache.local.invalidate_canvas(&canvas_id),
         state.cache.redis.delete(&lock_key),
     );
+
+    state
+        .ws_rooms
+        .broadcast(
+            &canvas_id,
+            RoomCanvasUpdate::Published {
+                pda: canvas_pda.to_string(),
+            },
+        )
+        .await;
 
     Ok(CanvasInfo::from(canvas))
 }

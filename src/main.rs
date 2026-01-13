@@ -7,6 +7,7 @@ use pixel_archives::{
     infrastructure::{cache::Cache, db::Database},
     services::{auth::JwtService, solana::SolanaClient},
     shutdown_signal,
+    ws::RoomManager,
 };
 use tokio::net::TcpListener;
 
@@ -39,12 +40,16 @@ async fn main() -> Result<()> {
     let solana_client = SolanaClient::initialize(&config.solana);
     tracing::info!("Solana client initialized");
 
+    let ws_rooms = RoomManager::initialize(config.canvas.max_collaborators);
+    tracing::info!("WebSocket rooms initialized");
+
     let state = AppState {
         config: Arc::new(config.clone()),
         db: Arc::new(db),
         cache: Arc::new(cache),
         jwt_service: Arc::new(jwt_service),
         solana_client: Arc::new(solana_client),
+        ws_rooms: Arc::new(ws_rooms),
     };
 
     let app = build_router(state);

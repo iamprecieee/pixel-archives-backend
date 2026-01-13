@@ -3,6 +3,7 @@ pub mod config;
 pub mod error;
 pub mod infrastructure;
 pub mod services;
+pub mod ws;
 
 use std::sync::Arc;
 
@@ -27,6 +28,7 @@ pub struct AppState {
     pub cache: Arc<Cache>,
     pub jwt_service: Arc<JwtService>,
     pub solana_client: Arc<SolanaClient>,
+    pub ws_rooms: Arc<ws::RoomManager>,
 }
 
 pub fn build_router(state: AppState) -> Router {
@@ -46,6 +48,7 @@ pub fn build_router(state: AppState) -> Router {
 
     Router::new()
         .nest("/api", api::router())
+        .nest("/ws", ws::router())
         .layer(cors)
         .layer(ConcurrencyLimitLayer::new(
             state.config.server.max_concurrent_requests,
