@@ -1,5 +1,3 @@
-use uuid::Uuid;
-
 use crate::{
     api::types::{
         CancelPixelBidParams, CancelPixelBidResponse, ConfirmPixelBidParams,
@@ -23,14 +21,9 @@ pub async fn place_pixel_bid(params: PlacePixelBidParams) -> Result<PlacePixelBi
         .validate_token(&params.access_token, TokenType::Access)?
         .sub;
 
-    let canvas_id: Uuid = params
-        .canvas_id
-        .parse()
-        .map_err(|_| AppError::InvalidParams("Invalid canvas_id".into()))?;
-
     let result = pixel_service::place_pixel(
         &app_state,
-        canvas_id,
+        params.canvas_id,
         user_id,
         params.x,
         params.y,
@@ -59,15 +52,10 @@ pub async fn confirm_pixel_bid(params: ConfirmPixelBidParams) -> Result<ConfirmP
         .validate_token(&params.access_token, TokenType::Access)?
         .sub;
 
-    let canvas_id: Uuid = params
-        .canvas_id
-        .parse()
-        .map_err(|_| AppError::InvalidParams("Invalid canvas_id".into()))?;
-
     let pixel_info = pixel_service::confirm_pixel_bid(
         &app_state,
         ConfirmPixelRequest {
-            canvas_id,
+            canvas_id: params.canvas_id,
             user_id,
             x: params.x,
             y: params.y,
@@ -98,12 +86,8 @@ pub async fn cancel_pixel_bid(params: CancelPixelBidParams) -> Result<CancelPixe
         .validate_token(&params.access_token, TokenType::Access)?
         .sub;
 
-    let canvas_id: Uuid = params
-        .canvas_id
-        .parse()
-        .map_err(|_| AppError::InvalidParams("Invalid canvas_id".into()))?;
-
-    pixel_service::cancel_pixel_bid(&app_state, canvas_id, user_id, params.x, params.y).await?;
+    pixel_service::cancel_pixel_bid(&app_state, params.canvas_id, user_id, params.x, params.y)
+        .await?;
 
     Ok(CancelPixelBidResponse { success: true })
 }
@@ -118,14 +102,9 @@ pub async fn paint_pixel(params: PaintPixelParams) -> Result<PaintPixelResponse>
         .validate_token(&params.access_token, TokenType::Access)?
         .sub;
 
-    let canvas_id: Uuid = params
-        .canvas_id
-        .parse()
-        .map_err(|_| AppError::InvalidParams("Invalid canvas_id".into()))?;
-
     let updated_pixel = pixel_service::paint_pixel(
         &app_state,
-        canvas_id,
+        params.canvas_id,
         user_id,
         params.x,
         params.y,

@@ -1,7 +1,8 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use uuid::Uuid;
 
-use crate::AppState;
+use crate::{AppState, services::nft::types::CreatorOutput};
 
 #[derive(Debug, Deserialize)]
 pub struct JsonRpcRequest {
@@ -103,7 +104,7 @@ pub struct CanvasResponse {
 #[derive(Deserialize)]
 pub struct GetCanvasParams {
     pub access_token: String,
-    pub canvas_id: String,
+    pub canvas_id: Uuid,
 
     #[serde(skip)]
     pub state: Option<AppState>,
@@ -158,7 +159,7 @@ pub struct JoinCanvasResponse {
 #[derive(Deserialize)]
 pub struct PublishCanvasParams {
     pub access_token: String,
-    pub canvas_id: String,
+    pub canvas_id: Uuid,
 
     #[serde(skip)]
     pub state: Option<AppState>,
@@ -174,7 +175,7 @@ pub struct PublishCanvasResponse {
 #[derive(Deserialize)]
 pub struct ConfirmPublishCanvasParams {
     pub access_token: String,
-    pub canvas_id: String,
+    pub canvas_id: Uuid,
     pub signature: String,
     pub canvas_pda: String,
 
@@ -192,7 +193,7 @@ pub struct ConfirmPublishCanvasResponse {
 #[derive(Deserialize)]
 pub struct CancelPublishCanvasParams {
     pub access_token: String,
-    pub canvas_id: String,
+    pub canvas_id: Uuid,
 
     #[serde(skip)]
     pub state: Option<AppState>,
@@ -207,7 +208,7 @@ pub struct CancelPublishCanvasResponse {
 #[derive(Deserialize)]
 pub struct DeleteCanvasParams {
     pub access_token: String,
-    pub canvas_id: String,
+    pub canvas_id: Uuid,
 
     #[serde(skip)]
     pub state: Option<AppState>,
@@ -221,7 +222,7 @@ pub struct DeleteCanvasResponse {
 #[derive(Deserialize)]
 pub struct PlacePixelBidParams {
     pub access_token: String,
-    pub canvas_id: String,
+    pub canvas_id: Uuid,
     pub x: i16,
     pub y: i16,
     pub color: i16,
@@ -244,7 +245,7 @@ pub struct PlacePixelBidResponse {
 #[derive(Deserialize)]
 pub struct ConfirmPixelBidParams {
     pub access_token: String,
-    pub canvas_id: String,
+    pub canvas_id: Uuid,
     pub x: i16,
     pub y: i16,
     pub color: i16,
@@ -268,7 +269,7 @@ pub struct ConfirmPixelBidResponse {
 #[derive(Deserialize)]
 pub struct CancelPixelBidParams {
     pub access_token: String,
-    pub canvas_id: String,
+    pub canvas_id: Uuid,
     pub x: i16,
     pub y: i16,
 
@@ -284,7 +285,7 @@ pub struct CancelPixelBidResponse {
 #[derive(Deserialize)]
 pub struct PaintPixelParams {
     pub access_token: String,
-    pub canvas_id: String,
+    pub canvas_id: Uuid,
     pub x: i16,
     pub y: i16,
     pub color: i16,
@@ -300,4 +301,100 @@ pub struct PaintPixelResponse {
     pub x: i16,
     pub y: i16,
     pub color: i16,
+}
+
+#[derive(Deserialize)]
+pub struct AnnounceMintParams {
+    pub access_token: String,
+    pub canvas_id: Uuid,
+
+    #[serde(skip)]
+    pub state: Option<AppState>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct AnnounceMintResponse {
+    pub success: bool,
+    pub state: String,
+    pub countdown_seconds: u8,
+}
+
+#[derive(Deserialize)]
+pub struct CancelMintCountdownParams {
+    pub access_token: String,
+    pub canvas_id: Uuid,
+
+    #[serde(skip)]
+    pub state: Option<AppState>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct CancelMintCountdownResponse {
+    pub success: bool,
+}
+
+#[derive(Deserialize)]
+pub struct PrepareMetadataParams {
+    pub access_token: String,
+    pub canvas_id: Uuid,
+
+    #[serde(skip)]
+    pub state: Option<AppState>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct PrepareMetadataResponse {
+    pub success: bool,
+    pub metadata_uri: String,
+    pub image_uri: String,
+    pub image_gateway_url: String,
+    pub metadata_gateway_url: String,
+    pub creators: Vec<CreatorOutput>,
+}
+
+#[derive(Deserialize)]
+pub struct MintNftParams {
+    pub access_token: String,
+    pub canvas_id: Uuid,
+
+    #[serde(skip)]
+    pub state: Option<AppState>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct MintNftResponse {
+    pub success: bool,
+    pub state: String,
+}
+
+#[derive(Deserialize)]
+pub struct ConfirmNftMintParams {
+    pub access_token: String,
+    pub canvas_id: Uuid,
+    pub signature: String,
+    pub mint_address: String,
+
+    #[serde(skip)]
+    pub state: Option<AppState>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ConfirmNftMintResponse {
+    pub success: bool,
+    pub state: String,
+}
+
+#[derive(Deserialize)]
+pub struct CancelMintParams {
+    pub access_token: String,
+    pub canvas_id: Uuid,
+
+    #[serde(skip)]
+    pub state: Option<AppState>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct CancelMintResponse {
+    pub success: bool,
+    pub state: String,
 }

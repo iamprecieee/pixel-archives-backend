@@ -138,7 +138,7 @@ impl PixelRepository {
             .select_only()
             .column(pixel::Column::OwnerId)
             .column_as(
-                Expr::col(pixel::Column::PriceLamports).sum(),
+                Expr::cust("COALESCE(SUM(price_lamports)::BIGINT, 0)"),
                 "total_lamports",
             )
             .filter(pixel::Column::CanvasId.eq(canvas_id))

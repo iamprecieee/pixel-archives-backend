@@ -1,5 +1,3 @@
-use uuid::Uuid;
-
 use crate::{
     api::types::{
         CancelPublishCanvasParams, CancelPublishCanvasResponse, CanvasResponse,
@@ -47,12 +45,7 @@ pub async fn get_canvas(params: GetCanvasParams) -> Result<CanvasWithPixelsRespo
         .validate_token(&params.access_token, TokenType::Access)?
         .sub;
 
-    let canvas_id: Uuid = params
-        .canvas_id
-        .parse()
-        .map_err(|_| AppError::InvalidParams("Invalid canvas_id".into()))?;
-
-    let result = canvas_service::get_canvas(&app_state, canvas_id, user_id).await?;
+    let result = canvas_service::get_canvas(&app_state, params.canvas_id, user_id).await?;
 
     Ok(CanvasWithPixelsResponse {
         canvas: CanvasResponse {
@@ -148,13 +141,8 @@ pub async fn publish_canvas(params: PublishCanvasParams) -> Result<PublishCanvas
         .validate_token(&params.access_token, TokenType::Access)?
         .sub;
 
-    let canvas_id: Uuid = params
-        .canvas_id
-        .parse()
-        .map_err(|_| AppError::InvalidParams("Invalid canvas_id".into()))?;
-
     let publish_info =
-        canvas_service::initialize_canvas_publish(&app_state, canvas_id, user_id).await?;
+        canvas_service::initialize_canvas_publish(&app_state, params.canvas_id, user_id).await?;
 
     Ok(PublishCanvasResponse {
         success: true,
@@ -175,14 +163,9 @@ pub async fn confirm_publish_canvas(
         .validate_token(&params.access_token, TokenType::Access)?
         .sub;
 
-    let canvas_id: Uuid = params
-        .canvas_id
-        .parse()
-        .map_err(|_| AppError::InvalidParams("Invalid canvas_id".into()))?;
-
     let canvas = canvas_service::confirm_canvas_publish(
         &app_state,
-        canvas_id,
+        params.canvas_id,
         user_id,
         &params.signature,
         &params.canvas_pda,
@@ -212,12 +195,7 @@ pub async fn cancel_publish_canvas(
         .validate_token(&params.access_token, TokenType::Access)?
         .sub;
 
-    let canvas_id: Uuid = params
-        .canvas_id
-        .parse()
-        .map_err(|_| AppError::InvalidParams("Invalid canvas_id".into()))?;
-
-    canvas_service::cancel_canvas_publish(&app_state, canvas_id, user_id).await?;
+    canvas_service::cancel_canvas_publish(&app_state, params.canvas_id, user_id).await?;
 
     Ok(CancelPublishCanvasResponse {
         success: true,
@@ -235,12 +213,7 @@ pub async fn delete_canvas(params: DeleteCanvasParams) -> Result<DeleteCanvasRes
         .validate_token(&params.access_token, TokenType::Access)?
         .sub;
 
-    let canvas_id: Uuid = params
-        .canvas_id
-        .parse()
-        .map_err(|_| AppError::InvalidParams("Invalid canvas_id".into()))?;
-
-    canvas_service::delete_canvas(&app_state, canvas_id, user_id).await?;
+    canvas_service::delete_canvas(&app_state, params.canvas_id, user_id).await?;
 
     Ok(DeleteCanvasResponse { success: true })
 }

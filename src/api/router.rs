@@ -13,11 +13,12 @@ use crate::{
     api::{
         methods::{self, extract_cookie},
         types::{
-            AuthOperation, AuthParams, CancelPixelBidParams, CancelPublishCanvasParams,
-            ConfirmPixelBidParams, ConfirmPublishCanvasParams, CreateCanvasParams,
-            DeleteCanvasParams, GetCanvasParams, JoinCanvasParams, JsonRpcRequest, JsonRpcResponse,
-            ListCanvasParams, PaintPixelParams, PlacePixelBidParams, PublishCanvasParams,
-            SessionParams,
+            AnnounceMintParams, AuthOperation, AuthParams, CancelMintCountdownParams,
+            CancelMintParams, CancelPixelBidParams, CancelPublishCanvasParams,
+            ConfirmNftMintParams, ConfirmPixelBidParams, ConfirmPublishCanvasParams,
+            CreateCanvasParams, DeleteCanvasParams, GetCanvasParams, JoinCanvasParams,
+            JsonRpcRequest, JsonRpcResponse, ListCanvasParams, MintNftParams, PaintPixelParams,
+            PlacePixelBidParams, PrepareMetadataParams, PublishCanvasParams, SessionParams,
         },
     },
     error::{AppError, JsonRpcErrorResponse},
@@ -179,6 +180,9 @@ async fn dispatch_method(method: &str, params: Value, state: AppState) -> Result
     if method.starts_with("pixel.") {
         return dispatch_pixel(method, params, state).await;
     }
+    if method.starts_with("nft.") {
+        return dispatch_nft(method, params, state).await;
+    }
     Err(AppError::MethodNotFound(method.to_string()))
 }
 
@@ -324,6 +328,60 @@ async fn dispatch_pixel(method: &str, params: Value, state: AppState) -> Result<
             cancel_params.state = Some(state);
 
             let result = methods::pixel::cancel_pixel_bid(cancel_params).await?;
+            serde_json::to_value(result).map_err(AppError::from)
+        }
+        _ => Err(AppError::MethodNotFound(method.to_string())),
+    }
+}
+
+async fn dispatch_nft(method: &str, params: Value, state: AppState) -> Result<Value, AppError> {
+    match method {
+        "nft.mint" => {
+            let mut mint_params: MintNftParams = serde_json::from_value(params)
+                .map_err(|e| AppError::InvalidParams(e.to_string()))?;
+            mint_params.state = Some(state);
+
+            let result = methods::nft::mint(mint_params).await?;
+            serde_json::to_value(result).map_err(AppError::from)
+        }
+        "nft.cancelMint" => {
+            let mut cancel_params: CancelMintParams = serde_json::from_value(params)
+                .map_err(|e| AppError::InvalidParams(e.to_string()))?;
+            cancel_params.state = Some(state);
+
+            let result = methods::nft::cancel_mint(cancel_params).await?;
+            serde_json::to_value(result).map_err(AppError::from)
+        }
+        "nft.announceMint" => {
+            let mut announce_params: AnnounceMintParams = serde_json::from_value(params)
+                .map_err(|e| AppError::InvalidParams(e.to_string()))?;
+            announce_params.state = Some(state);
+
+            let result = methods::nft::announce_mint_countdown(announce_params).await?;
+            serde_json::to_value(result).map_err(AppError::from)
+        }
+        "nft.cancelMintCountdown" => {
+            let mut cancel_params: CancelMintCountdownParams = serde_json::from_value(params)
+                .map_err(|e| AppError::InvalidParams(e.to_string()))?;
+            cancel_params.state = Some(state);
+
+            let result = methods::nft::cancel_mint_countdown(cancel_params).await?;
+            serde_json::to_value(result).map_err(AppError::from)
+        }
+        "nft.confirmMint" => {
+            let mut confirm_params: ConfirmNftMintParams = serde_json::from_value(params)
+                .map_err(|e| AppError::InvalidParams(e.to_string()))?;
+            confirm_params.state = Some(state);
+
+            let result = methods::nft::confirm_mint(confirm_params).await?;
+            serde_json::to_value(result).map_err(AppError::from)
+        }
+        "nft.prepareMetadata" => {
+            let mut prepare_params: PrepareMetadataParams = serde_json::from_value(params)
+                .map_err(|e| AppError::InvalidParams(e.to_string()))?;
+            prepare_params.state = Some(state);
+
+            let result = methods::nft::prepare_metadata(prepare_params).await?;
             serde_json::to_value(result).map_err(AppError::from)
         }
         _ => Err(AppError::MethodNotFound(method.to_string())),

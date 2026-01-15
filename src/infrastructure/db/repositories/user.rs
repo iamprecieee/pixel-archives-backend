@@ -31,6 +31,16 @@ impl UserRepository {
             .await?)
     }
 
+    pub async fn find_users_by_ids<C: ConnectionTrait>(
+        db_connection: &C,
+        ids: &[Uuid],
+    ) -> Result<Vec<user::Model>> {
+        Ok(User::find()
+            .filter(user::Column::Id.is_in(ids.iter().cloned()))
+            .all(db_connection)
+            .await?)
+    }
+
     pub async fn existing_user_by_wallet_or_username<C: ConnectionTrait + Send>(
         db_connection: &C,
         wallet: &str,

@@ -7,6 +7,7 @@ use crate::error::{AppError, Result};
 
 pub mod auth;
 pub mod canvas;
+pub mod nft;
 pub mod pixel;
 
 fn validate_wallet_address(wallet: &str) -> Result<()> {

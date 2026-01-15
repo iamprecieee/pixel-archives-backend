@@ -62,6 +62,14 @@ impl SolanaClient {
         Pubkey::find_program_address(&[b"config"], &self.program_id)
     }
 
+    pub fn derive_canvas_pda_from_uuid(&self, canvas_id: &uuid::Uuid) -> (Pubkey, u8) {
+        self.derive_canvas_pda(canvas_id.as_bytes())
+    }
+
+    pub async fn get_account_data(&self, pubkey: &Pubkey) -> Result<Vec<u8>, ClientError> {
+        Ok(self.client.get_account(pubkey).await?.data)
+    }
+
     pub async fn get_recent_blockhash(&self) -> Result<Hash, ClientError> {
         {
             let cache = self.blockhash_cache.read().await;

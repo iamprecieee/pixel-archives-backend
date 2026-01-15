@@ -62,6 +62,7 @@ pub struct CanvasConfig {
     pub cooldown_ms: u64,
     pub max_collaborators: usize,
     pub lock_ms: u64,
+    pub mint_countdown_secs: u8,
 }
 
 #[derive(Debug, Clone)]
@@ -125,6 +126,7 @@ impl Config {
                 cooldown_ms: env_or_parse("PIXEL_COOLDOWN_MS", 5000)?,
                 max_collaborators: env_or_parse("MAX_COLLABORATORS", 50)?,
                 lock_ms: env_or_parse("PIXEL_LOCK_MS", 60000)?,
+                mint_countdown_secs: env_or_parse("MINT_COUNTDOWN_SECS", 30)?,
             },
             solana: SolanaConfig {
                 rpc_url: env_required("SOLANA_RPC_URL")?,

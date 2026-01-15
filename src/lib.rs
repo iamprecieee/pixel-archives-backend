@@ -16,6 +16,7 @@ use tower::limit::ConcurrencyLimitLayer;
 use tower_http::cors::CorsLayer;
 
 use crate::{
+    api::nft_metadata,
     config::Config,
     infrastructure::{cache::Cache, db::Database},
     services::{auth::JwtService, solana::SolanaClient},
@@ -48,6 +49,7 @@ pub fn build_router(state: AppState) -> Router {
 
     Router::new()
         .nest("/api", api::router())
+        .nest("/nft", nft_metadata::router())
         .nest("/ws", ws::router())
         .layer(cors)
         .layer(ConcurrencyLimitLayer::new(
