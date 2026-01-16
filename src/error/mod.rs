@@ -111,6 +111,12 @@ pub enum AppError {
 
     #[error("Bid too low - minimum is {min_lamports} lamports")]
     BidTooLow { min_lamports: u64 },
+
+    #[error("TryInitError - {0}")]
+    TryInitError(#[from] tracing_subscriber::util::TryInitError),
+
+    #[error("Rate limit exceeded")]
+    RateLimitExceeded,
 }
 
 impl AppError {
@@ -140,6 +146,8 @@ impl AppError {
             Self::NotCollaborator => -32035,
             Self::CooldownActive { .. } => -32042,
             Self::BidTooLow { .. } => -32041,
+            Self::TryInitError(_) => -32080,
+            Self::RateLimitExceeded => -32081,
         }
     }
 
@@ -161,6 +169,15 @@ impl AppError {
             }
             Self::SerializationError(error) => {
                 tracing::error!(error = %error, "Serialization error");
+
+                JsonRpcError {
+                    code: self.code(),
+                    message: "Internal server error".to_string(),
+                    data: None,
+                }
+            }
+            Self::TryInitError(error) => {
+                tracing::error!(error = %error, "TryInitError");
 
                 JsonRpcError {
                     code: self.code(),
@@ -281,6 +298,11 @@ impl AppError {
                     (*min_lamports as f64) / 1_000_000_000.0
                 ),
                 data: Some(serde_json::json!({ "min_lamports": min_lamports })),
+            },
+            Self::RateLimitExceeded => JsonRpcError {
+                code: self.code(),
+                message: "Too many requests. Try again in a moment.".to_string(),
+                data: None,
             },
             _ => JsonRpcError {
                 code: self.code(),

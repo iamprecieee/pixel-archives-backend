@@ -1,25 +1,20 @@
 use std::{net::SocketAddr, sync::Arc};
 
 use pixel_archives::{
-    AppState, build_router,
+    AppState, RateLimiters, build_router,
     config::Config,
     error::Result,
     infrastructure::{cache::Cache, db::Database},
+    middleware::rate_limit::create_limiter,
     services::{auth::JwtService, solana::SolanaClient},
-    shutdown_signal,
+    utils::server::{init_tracing, shutdown_signal},
     ws::RoomManager,
 };
 use tokio::net::TcpListener;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    tracing_subscriber::fmt()
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
-                "pixel_archives=info,sqlx=error,sea_orm_migration=error".into()
-            }),
-        )
-        .init();
+    init_tracing()?;
 
     let config = Config::from_env()?;
     config.validate()?;
@@ -43,6 +38,31 @@ async fn main() -> Result<()> {
     let ws_rooms = RoomManager::initialize(config.canvas.max_collaborators);
     tracing::info!("WebSocket rooms initialized");
 
+    let rate_limit_redis_cache = Arc::new(cache.redis.clone());
+
+    let rate_limiters = RateLimiters {
+        pixel: create_limiter(
+            rate_limit_redis_cache.clone(),
+            config.rate_limit.pixel_limit,
+            "pixel",
+        ),
+        auth: create_limiter(
+            rate_limit_redis_cache.clone(),
+            config.rate_limit.auth_limit,
+            "auth",
+        ),
+        canvas: create_limiter(
+            rate_limit_redis_cache.clone(),
+            config.rate_limit.canvas_limit,
+            "canvas",
+        ),
+        solana: create_limiter(
+            rate_limit_redis_cache.clone(),
+            config.rate_limit.solana_limit,
+            "solana",
+        ),
+    };
+
     let state = AppState {
         config: Arc::new(config.clone()),
         db: Arc::new(db),
@@ -50,6 +70,7 @@ async fn main() -> Result<()> {
         jwt_service: Arc::new(jwt_service),
         solana_client: Arc::new(solana_client),
         ws_rooms: Arc::new(ws_rooms),
+        rate_limiters: Arc::new(rate_limiters),
     };
 
     let app = build_router(state);

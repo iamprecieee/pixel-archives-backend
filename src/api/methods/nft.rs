@@ -2,10 +2,9 @@ use std::time::Duration;
 
 use crate::{
     api::types::{
-        AnnounceMintParams, AnnounceMintResponse, CancelMintCountdownParams,
-        CancelMintCountdownResponse, CancelMintParams, CancelMintResponse, ConfirmNftMintParams,
-        ConfirmNftMintResponse, MintNftParams, MintNftResponse, PrepareMetadataParams,
-        PrepareMetadataResponse,
+        AnnounceMintParams, AnnounceMintResponse, CancelMintCountdownParams, CancelMintParams,
+        ConfirmNftMintParams, MintNftParams, PrepareMetadataParams, PrepareMetadataResponse,
+        StateChangeResponse, SuccessResponse,
     },
     error::{AppError, Result},
     infrastructure::{
@@ -78,9 +77,7 @@ pub async fn announce_mint_countdown(params: AnnounceMintParams) -> Result<Annou
     })
 }
 
-pub async fn cancel_mint_countdown(
-    params: CancelMintCountdownParams,
-) -> Result<CancelMintCountdownResponse> {
+pub async fn cancel_mint_countdown(params: CancelMintCountdownParams) -> Result<SuccessResponse> {
     let app_state = params.state.ok_or(AppError::InternalServerError(
         "Failed to get app state".to_string(),
     ))?;
@@ -124,7 +121,7 @@ pub async fn cancel_mint_countdown(
         .broadcast(&canvas.id, RoomCanvasUpdate::MintCountdownCancelled)
         .await;
 
-    Ok(CancelMintCountdownResponse { success: true })
+    Ok(SuccessResponse::ok())
 }
 
 pub async fn prepare_metadata(params: PrepareMetadataParams) -> Result<PrepareMetadataResponse> {
@@ -164,7 +161,7 @@ pub async fn prepare_metadata(params: PrepareMetadataParams) -> Result<PrepareMe
     })
 }
 
-pub async fn mint(params: MintNftParams) -> Result<MintNftResponse> {
+pub async fn mint(params: MintNftParams) -> Result<StateChangeResponse> {
     let app_state = params.state.ok_or(AppError::InternalServerError(
         "Failed to get app state".to_string(),
     ))?;
@@ -176,13 +173,10 @@ pub async fn mint(params: MintNftParams) -> Result<MintNftResponse> {
 
     let _ = nft_service::initiate_nft_mint(&app_state, params.canvas_id, user_id).await?;
 
-    Ok(MintNftResponse {
-        success: true,
-        state: "minting".to_string(),
-    })
+    Ok(StateChangeResponse::new("minting"))
 }
 
-pub async fn confirm_mint(params: ConfirmNftMintParams) -> Result<ConfirmNftMintResponse> {
+pub async fn confirm_mint(params: ConfirmNftMintParams) -> Result<StateChangeResponse> {
     let app_state = params.state.ok_or(AppError::InternalServerError(
         "Failed to get app state".to_string(),
     ))?;
@@ -201,13 +195,10 @@ pub async fn confirm_mint(params: ConfirmNftMintParams) -> Result<ConfirmNftMint
     )
     .await?;
 
-    Ok(ConfirmNftMintResponse {
-        success: true,
-        state: "minted".to_string(),
-    })
+    Ok(StateChangeResponse::new("minted"))
 }
 
-pub async fn cancel_mint(params: CancelMintParams) -> Result<CancelMintResponse> {
+pub async fn cancel_mint(params: CancelMintParams) -> Result<StateChangeResponse> {
     let app_state = params.state.ok_or(AppError::InternalServerError(
         "Failed to get app state".to_string(),
     ))?;
@@ -219,8 +210,5 @@ pub async fn cancel_mint(params: CancelMintParams) -> Result<CancelMintResponse>
 
     nft_service::cancel_mint(&app_state, params.canvas_id, user_id).await?;
 
-    Ok(CancelMintResponse {
-        success: true,
-        state: "published".to_string(),
-    })
+    Ok(StateChangeResponse::new("published"))
 }

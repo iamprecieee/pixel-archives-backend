@@ -10,6 +10,7 @@ pub struct Config {
     pub jwt: JwtConfig,
     pub canvas: CanvasConfig,
     pub solana: SolanaConfig,
+    pub rate_limit: RateLimitConfig,
 }
 
 #[derive(Debug, Clone)]
@@ -73,6 +74,14 @@ pub struct SolanaConfig {
     pub blockhash_ttl: u64,
 }
 
+#[derive(Debug, Clone)]
+pub struct RateLimitConfig {
+    pub auth_limit: u32,
+    pub pixel_limit: u32,
+    pub canvas_limit: u32,
+    pub solana_limit: u32,
+}
+
 impl Config {
     pub fn from_env() -> Result<Self> {
         dotenvy::dotenv().ok();
@@ -133,6 +142,12 @@ impl Config {
                 program_id: env_required("SOLANA_PROGRAM_ID")?,
                 commitment: env_or("SOLANA_COMMITMENT", "confirmed"),
                 blockhash_ttl: env_or_parse("SOLANA_BLOCKHASH_TTL", 15)?,
+            },
+            rate_limit: RateLimitConfig {
+                auth_limit: env_or_parse("RATE_LIMIT_AUTH", 10)?,
+                pixel_limit: env_or_parse("RATE_LIMIT_PIXEL", 30)?,
+                canvas_limit: env_or_parse("RATE_LIMIT_CANVAS", 5)?,
+                solana_limit: env_or_parse("RATE_LIMIT_SOLANA", 20)?,
             },
         })
     }

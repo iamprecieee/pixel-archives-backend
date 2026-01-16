@@ -1,7 +1,9 @@
+use std::net::SocketAddr;
+
 use axum::{
     Router,
     body::Body,
-    extract::{Request, State},
+    extract::{ConnectInfo, Request, State},
     http::{StatusCode, header},
     response::Response,
     routing::post,
@@ -11,15 +13,9 @@ use serde_json::Value;
 use crate::{
     AppState,
     api::{
-        methods::{self, extract_cookie},
-        types::{
-            AnnounceMintParams, AuthOperation, AuthParams, CancelMintCountdownParams,
-            CancelMintParams, CancelPixelBidParams, CancelPublishCanvasParams,
-            ConfirmNftMintParams, ConfirmPixelBidParams, ConfirmPublishCanvasParams,
-            CreateCanvasParams, DeleteCanvasParams, GetCanvasParams, JoinCanvasParams,
-            JsonRpcRequest, JsonRpcResponse, ListCanvasParams, MintNftParams, PaintPixelParams,
-            PlacePixelBidParams, PrepareMetadataParams, PublishCanvasParams, SessionParams,
-        },
+        dispatcher::dispatch_method,
+        methods::extract_cookie,
+        types::{JsonRpcRequest, JsonRpcResponse},
     },
     error::{AppError, JsonRpcErrorResponse},
     services::auth::{
@@ -32,7 +28,11 @@ pub fn router() -> Router<AppState> {
     Router::new().route("/", post(rpc_handler))
 }
 
-async fn rpc_handler(State(state): State<AppState>, request: Request<Body>) -> Response {
+async fn rpc_handler(
+    State(state): State<AppState>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    request: Request<Body>,
+) -> Response {
     let (parts, body) = request.into_parts();
     let headers = parts.headers;
 
@@ -82,19 +82,28 @@ async fn rpc_handler(State(state): State<AppState>, request: Request<Body>) -> R
     let mut params = request.params;
     let method = request.method.clone();
 
+    let mut client_key = String::new();
+
     // Inject tokens into params based on method
     if let Value::Object(map) = &mut params {
-        if let Some(t) = &access_token {
-            map.insert("access_token".to_string(), Value::String(t.clone()));
+        if let Some(token) = &access_token {
+            map.insert("access_token".to_string(), Value::String(token.clone()));
+
+            client_key =
+                if let Ok(claims) = state.jwt_service.validate_token(token, TokenType::Access) {
+                    format!("user:{}", claims.sub)
+                } else {
+                    format!("ip:{}", addr.ip())
+                };
         }
         if (method == "auth.refresh" || method == "auth.logout")
-            && let Some(t) = &refresh_token
+            && let Some(token) = &refresh_token
         {
-            map.insert("refresh_token".to_string(), Value::String(t.clone()));
+            map.insert("refresh_token".to_string(), Value::String(token.clone()));
         }
     }
 
-    let result = dispatch_method(&method, params, state.clone()).await;
+    let result = dispatch_method(&method, params, state.clone(), &client_key).await;
 
     let secure = state
         .config
@@ -168,222 +177,4 @@ fn build_json_response(
     }
 
     response.body(Body::from(body)).unwrap()
-}
-
-async fn dispatch_method(method: &str, params: Value, state: AppState) -> Result<Value, AppError> {
-    if method.starts_with("auth.") {
-        return dispatch_auth(method, params, state).await;
-    }
-    if method.starts_with("canvas.") {
-        return dispatch_canvas(method, params, state).await;
-    }
-    if method.starts_with("pixel.") {
-        return dispatch_pixel(method, params, state).await;
-    }
-    if method.starts_with("nft.") {
-        return dispatch_nft(method, params, state).await;
-    }
-    Err(AppError::MethodNotFound(method.to_string()))
-}
-
-async fn dispatch_auth(method: &str, params: Value, state: AppState) -> Result<Value, AppError> {
-    match method {
-        "auth.register" => {
-            let mut auth_params: AuthParams = serde_json::from_value(params)
-                .map_err(|e| AppError::InvalidParams(e.to_string()))?;
-            auth_params.state = Some(state);
-            auth_params.operation = Some(AuthOperation::Register);
-
-            let result = methods::auth::authenticate_user(auth_params).await?;
-            serde_json::to_value(result).map_err(AppError::from)
-        }
-        "auth.login" => {
-            let mut auth_params: AuthParams = serde_json::from_value(params)
-                .map_err(|e| AppError::InvalidParams(e.to_string()))?;
-            auth_params.state = Some(state);
-            auth_params.operation = Some(AuthOperation::Login);
-
-            let result = methods::auth::authenticate_user(auth_params).await?;
-            serde_json::to_value(result).map_err(AppError::from)
-        }
-        "auth.logout" => {
-            let mut session_params: SessionParams = serde_json::from_value(params)
-                .map_err(|e| AppError::InvalidParams(e.to_string()))?;
-            session_params.state = Some(state);
-
-            let result = methods::auth::logout_user(session_params).await?;
-            serde_json::to_value(result).map_err(AppError::from)
-        }
-        "auth.refresh" => {
-            let mut session_params: SessionParams = serde_json::from_value(params)
-                .map_err(|e| AppError::InvalidParams(e.to_string()))?;
-            session_params.state = Some(state);
-
-            let result = methods::auth::refresh_user_token(session_params).await?;
-            serde_json::to_value(result).map_err(AppError::from)
-        }
-        _ => Err(AppError::MethodNotFound(method.to_string())),
-    }
-}
-
-async fn dispatch_canvas(method: &str, params: Value, state: AppState) -> Result<Value, AppError> {
-    match method {
-        "canvas.create" => {
-            let mut create_params: CreateCanvasParams = serde_json::from_value(params)
-                .map_err(|e| AppError::InvalidParams(e.to_string()))?;
-            create_params.state = Some(state);
-
-            let result = methods::canvas::create_canvas(create_params).await?;
-            serde_json::to_value(result).map_err(AppError::from)
-        }
-        "canvas.list" => {
-            let mut list_params: ListCanvasParams = serde_json::from_value(params)
-                .map_err(|e| AppError::InvalidParams(e.to_string()))?;
-            list_params.state = Some(state);
-
-            let result = methods::canvas::list_canvas(list_params).await?;
-            serde_json::to_value(result).map_err(AppError::from)
-        }
-        "canvas.get" => {
-            let mut get_params: GetCanvasParams = serde_json::from_value(params)
-                .map_err(|e| AppError::InvalidParams(e.to_string()))?;
-            get_params.state = Some(state);
-
-            let result = methods::canvas::get_canvas(get_params).await?;
-            serde_json::to_value(result).map_err(AppError::from)
-        }
-        "canvas.join" => {
-            let mut join_params: JoinCanvasParams = serde_json::from_value(params)
-                .map_err(|e| AppError::InvalidParams(e.to_string()))?;
-            join_params.state = Some(state);
-
-            let result = methods::canvas::join_canvas(join_params).await?;
-            serde_json::to_value(result).map_err(AppError::from)
-        }
-        "canvas.publish" => {
-            let mut publish_params: PublishCanvasParams = serde_json::from_value(params)
-                .map_err(|e| AppError::InvalidParams(e.to_string()))?;
-            publish_params.state = Some(state);
-
-            let result = methods::canvas::publish_canvas(publish_params).await?;
-            serde_json::to_value(result).map_err(AppError::from)
-        }
-        "canvas.confirmPublish" => {
-            let mut confirm_params: ConfirmPublishCanvasParams = serde_json::from_value(params)
-                .map_err(|e| AppError::InvalidParams(e.to_string()))?;
-            confirm_params.state = Some(state);
-
-            let result = methods::canvas::confirm_publish_canvas(confirm_params).await?;
-            serde_json::to_value(result).map_err(AppError::from)
-        }
-        "canvas.cancelPublish" => {
-            let mut cancel_params: CancelPublishCanvasParams = serde_json::from_value(params)
-                .map_err(|e| AppError::InvalidParams(e.to_string()))?;
-            cancel_params.state = Some(state);
-
-            let result = methods::canvas::cancel_publish_canvas(cancel_params).await?;
-            serde_json::to_value(result).map_err(AppError::from)
-        }
-        "canvas.delete" => {
-            let mut delete_params: DeleteCanvasParams = serde_json::from_value(params)
-                .map_err(|e| AppError::InvalidParams(e.to_string()))?;
-            delete_params.state = Some(state);
-
-            let result = methods::canvas::delete_canvas(delete_params).await?;
-            serde_json::to_value(result).map_err(AppError::from)
-        }
-        _ => Err(AppError::MethodNotFound(method.to_string())),
-    }
-}
-
-async fn dispatch_pixel(method: &str, params: Value, state: AppState) -> Result<Value, AppError> {
-    match method {
-        "pixel.place" => {
-            let mut place_params: PlacePixelBidParams = serde_json::from_value(params)
-                .map_err(|e| AppError::InvalidParams(e.to_string()))?;
-            place_params.state = Some(state);
-
-            let result = methods::pixel::place_pixel_bid(place_params).await?;
-            serde_json::to_value(result).map_err(AppError::from)
-        }
-        "pixel.confirm" => {
-            let mut confirm_params: ConfirmPixelBidParams = serde_json::from_value(params)
-                .map_err(|e| AppError::InvalidParams(e.to_string()))?;
-            confirm_params.state = Some(state);
-
-            let result = methods::pixel::confirm_pixel_bid(confirm_params).await?;
-            serde_json::to_value(result).map_err(AppError::from)
-        }
-        "pixel.paint" => {
-            let mut paint_params: PaintPixelParams = serde_json::from_value(params)
-                .map_err(|e| AppError::InvalidParams(e.to_string()))?;
-            paint_params.state = Some(state);
-
-            let result = methods::pixel::paint_pixel(paint_params).await?;
-            serde_json::to_value(result).map_err(AppError::from)
-        }
-        "pixel.cancel" => {
-            let mut cancel_params: CancelPixelBidParams = serde_json::from_value(params)
-                .map_err(|e| AppError::InvalidParams(e.to_string()))?;
-            cancel_params.state = Some(state);
-
-            let result = methods::pixel::cancel_pixel_bid(cancel_params).await?;
-            serde_json::to_value(result).map_err(AppError::from)
-        }
-        _ => Err(AppError::MethodNotFound(method.to_string())),
-    }
-}
-
-async fn dispatch_nft(method: &str, params: Value, state: AppState) -> Result<Value, AppError> {
-    match method {
-        "nft.mint" => {
-            let mut mint_params: MintNftParams = serde_json::from_value(params)
-                .map_err(|e| AppError::InvalidParams(e.to_string()))?;
-            mint_params.state = Some(state);
-
-            let result = methods::nft::mint(mint_params).await?;
-            serde_json::to_value(result).map_err(AppError::from)
-        }
-        "nft.cancelMint" => {
-            let mut cancel_params: CancelMintParams = serde_json::from_value(params)
-                .map_err(|e| AppError::InvalidParams(e.to_string()))?;
-            cancel_params.state = Some(state);
-
-            let result = methods::nft::cancel_mint(cancel_params).await?;
-            serde_json::to_value(result).map_err(AppError::from)
-        }
-        "nft.announceMint" => {
-            let mut announce_params: AnnounceMintParams = serde_json::from_value(params)
-                .map_err(|e| AppError::InvalidParams(e.to_string()))?;
-            announce_params.state = Some(state);
-
-            let result = methods::nft::announce_mint_countdown(announce_params).await?;
-            serde_json::to_value(result).map_err(AppError::from)
-        }
-        "nft.cancelMintCountdown" => {
-            let mut cancel_params: CancelMintCountdownParams = serde_json::from_value(params)
-                .map_err(|e| AppError::InvalidParams(e.to_string()))?;
-            cancel_params.state = Some(state);
-
-            let result = methods::nft::cancel_mint_countdown(cancel_params).await?;
-            serde_json::to_value(result).map_err(AppError::from)
-        }
-        "nft.confirmMint" => {
-            let mut confirm_params: ConfirmNftMintParams = serde_json::from_value(params)
-                .map_err(|e| AppError::InvalidParams(e.to_string()))?;
-            confirm_params.state = Some(state);
-
-            let result = methods::nft::confirm_mint(confirm_params).await?;
-            serde_json::to_value(result).map_err(AppError::from)
-        }
-        "nft.prepareMetadata" => {
-            let mut prepare_params: PrepareMetadataParams = serde_json::from_value(params)
-                .map_err(|e| AppError::InvalidParams(e.to_string()))?;
-            prepare_params.state = Some(state);
-
-            let result = methods::nft::prepare_metadata(prepare_params).await?;
-            serde_json::to_value(result).map_err(AppError::from)
-        }
-        _ => Err(AppError::MethodNotFound(method.to_string())),
-    }
 }

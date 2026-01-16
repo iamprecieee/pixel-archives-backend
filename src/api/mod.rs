@@ -1,3 +1,4 @@
+pub mod dispatcher;
 pub mod methods;
 pub mod nft_metadata;
 pub mod router;

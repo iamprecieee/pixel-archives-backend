@@ -1,10 +1,10 @@
 use crate::{
     api::types::{
-        CancelPublishCanvasParams, CancelPublishCanvasResponse, CanvasResponse,
-        CanvasWithPixelsResponse, ConfirmPublishCanvasParams, ConfirmPublishCanvasResponse,
-        CreateCanvasParams, DeleteCanvasParams, DeleteCanvasResponse, GetCanvasParams,
-        JoinCanvasParams, JoinCanvasResponse, ListCanvasParams, ListCanvasResponse, OwnedPixelInfo,
-        PublishCanvasParams, PublishCanvasResponse,
+        CancelPublishCanvasParams, CanvasResponse, CanvasWithPixelsResponse,
+        ConfirmPublishCanvasParams, ConfirmPublishCanvasResponse, CreateCanvasParams,
+        DeleteCanvasParams, GetCanvasParams, JoinCanvasParams, JoinCanvasResponse,
+        ListCanvasParams, ListCanvasResponse, OwnedPixelInfo, PublishCanvasParams,
+        PublishCanvasResponse, StateChangeResponse, SuccessResponse,
     },
     error::{AppError, Result},
     services::{auth::TokenType, canvas as canvas_service},
@@ -185,7 +185,7 @@ pub async fn confirm_publish_canvas(
 
 pub async fn cancel_publish_canvas(
     params: CancelPublishCanvasParams,
-) -> Result<CancelPublishCanvasResponse> {
+) -> Result<StateChangeResponse> {
     let app_state = params.state.ok_or(AppError::InternalServerError(
         "Failed to get app state".to_string(),
     ))?;
@@ -197,13 +197,10 @@ pub async fn cancel_publish_canvas(
 
     canvas_service::cancel_canvas_publish(&app_state, params.canvas_id, user_id).await?;
 
-    Ok(CancelPublishCanvasResponse {
-        success: true,
-        state: "draft".to_string(),
-    })
+    Ok(StateChangeResponse::new("draft"))
 }
 
-pub async fn delete_canvas(params: DeleteCanvasParams) -> Result<DeleteCanvasResponse> {
+pub async fn delete_canvas(params: DeleteCanvasParams) -> Result<SuccessResponse> {
     let app_state = params.state.ok_or(AppError::InternalServerError(
         "Failed to get app state".to_string(),
     ))?;
@@ -215,5 +212,5 @@ pub async fn delete_canvas(params: DeleteCanvasParams) -> Result<DeleteCanvasRes
 
     canvas_service::delete_canvas(&app_state, params.canvas_id, user_id).await?;
 
-    Ok(DeleteCanvasResponse { success: true })
+    Ok(SuccessResponse::ok())
 }

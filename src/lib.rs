@@ -2,7 +2,9 @@ pub mod api;
 pub mod config;
 pub mod error;
 pub mod infrastructure;
+pub mod middleware;
 pub mod services;
+pub mod utils;
 pub mod ws;
 
 use std::sync::Arc;
@@ -11,16 +13,24 @@ use axum::{
     Router,
     http::{Method, header},
 };
-use tokio::signal;
 use tower::limit::ConcurrencyLimitLayer;
-use tower_http::cors::CorsLayer;
+use tower_http::{compression::CompressionLayer, cors::CorsLayer, trace::TraceLayer};
 
 use crate::{
     api::nft_metadata,
     config::Config,
     infrastructure::{cache::Cache, db::Database},
+    middleware::rate_limit::RateLimiter,
     services::{auth::JwtService, solana::SolanaClient},
 };
+
+#[derive(Clone)]
+pub struct RateLimiters {
+    pub pixel: RateLimiter,
+    pub auth: RateLimiter,
+    pub canvas: RateLimiter,
+    pub solana: RateLimiter,
+}
 
 #[derive(Clone)]
 pub struct AppState {
@@ -30,6 +40,7 @@ pub struct AppState {
     pub jwt_service: Arc<JwtService>,
     pub solana_client: Arc<SolanaClient>,
     pub ws_rooms: Arc<ws::RoomManager>,
+    pub rate_limiters: Arc<RateLimiters>,
 }
 
 pub fn build_router(state: AppState) -> Router {
@@ -51,39 +62,16 @@ pub fn build_router(state: AppState) -> Router {
         .nest("/api", api::router())
         .nest("/nft", nft_metadata::router())
         .nest("/ws", ws::router())
+        .layer(
+            TraceLayer::new_for_http()
+                .make_span_with(middleware::logging::make_log_span)
+                .on_request(())
+                .on_eos(()),
+        )
+        .layer(CompressionLayer::new())
         .layer(cors)
         .layer(ConcurrencyLimitLayer::new(
             state.config.server.max_concurrent_requests,
         ))
         .with_state(state)
-}
-
-pub async fn shutdown_signal() {
-    let ctrl_c = async {
-        signal::ctrl_c()
-            .await
-            .expect("Failed to install ctrl+c handler");
-    };
-
-    #[cfg(unix)]
-    let terminate = async {
-        use tokio::signal::unix::{SignalKind, signal};
-
-        signal(SignalKind::terminate())
-            .expect("Failed to install signal handler")
-            .recv()
-            .await;
-    };
-
-    #[cfg(not(unix))]
-    let terminate = std::future::pending::<()>();
-
-    tokio::select! {
-        _ = ctrl_c => {
-            tracing::warn!("Received Ctrl+C, initiating shutdown");
-        }
-        _ = terminate => {
-            tracing::warn!("Received SIGTERM, initiating shutdown");
-        }
-    }
 }
