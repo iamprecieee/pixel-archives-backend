@@ -4,8 +4,6 @@
 
 Pixel Archives is a collaborative pixel art platform where users create, claim, and mint 32x32 pixel canvases as NFTs on Solana.
 
-**Base URL:** `https://api.pixelarchives.io` (or your configured `SERVER_PUBLIC_URL`)
-
 **Protocol:** JSON-RPC 2.0 over HTTP POST
 
 **Authentication:** Cookie-based JWT tokens (automatically set on login)
