@@ -103,9 +103,6 @@ pub enum AppError {
     #[error("Transaction failed - {0}")]
     TransactionFailed(String),
 
-    #[error("Not a collaborator on this canvas")]
-    NotCollaborator,
-
     #[error("Cooldown active - {remaining_ms}ms remaining")]
     CooldownActive { remaining_ms: u64 },
 
@@ -128,7 +125,7 @@ impl AppError {
             Self::CanvasNotFound => -32030,
             Self::InvalidCanvasStateTransition => -32031,
             Self::RedisError(_) => -32071,
-            Self::SerializationError(_) => -32601,
+            Self::SerializationError(_) => -32072,
             Self::Unauthorized => -32020,
             Self::TokenExpired => -32021,
             Self::InvalidSignature => -32012,
@@ -143,7 +140,7 @@ impl AppError {
             Self::PixelLocked => -32040,
             Self::SolanaRpc(_) => -32061,
             Self::TransactionFailed(_) => -32060,
-            Self::NotCollaborator => -32035,
+
             Self::CooldownActive { .. } => -32042,
             Self::BidTooLow { .. } => -32041,
             Self::TryInitError(_) => -32080,
@@ -332,9 +329,7 @@ impl IntoResponse for AppError {
                 StatusCode::CONFLICT
             }
             Self::InvalidParams(_) | Self::InvalidCanvasStateTransition => StatusCode::BAD_REQUEST,
-            Self::NotCanvasCollaborator | Self::NotCanvasOwner | Self::NotCollaborator => {
-                StatusCode::FORBIDDEN
-            }
+            Self::NotCanvasCollaborator | Self::NotCanvasOwner => StatusCode::FORBIDDEN,
             Self::CooldownActive { .. } | Self::BidTooLow { .. } | Self::PixelLocked => {
                 StatusCode::TOO_MANY_REQUESTS
             }

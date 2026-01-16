@@ -88,7 +88,7 @@ pub async fn place_pixel(
     if !CanvasRepository::is_canvas_collaborator(state.db.get_connection(), canvas_id, user_id)
         .await?
     {
-        return Err(AppError::NotCollaborator);
+        return Err(AppError::NotCanvasCollaborator);
     }
 
     validate_pixel_coordinates(&state.config.canvas, x, y)?;
