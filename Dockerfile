@@ -33,12 +33,23 @@ RUN cargo build --release
 # Runtime image
 FROM gcr.io/distroless/cc-debian12
 
-# Copy binary from builder
+WORKDIR /app
+
+# Copy binary
 COPY --from=builder /app/target/release/pixel_archives /app/pixel_archives
+
+# Copy CA certificates for TLS
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+
+# Copy DNS resolution libraries (required for distroless)
+COPY --from=builder /lib/x86_64-linux-gnu/libnss_dns.so.2 /lib/x86_64-linux-gnu/
+COPY --from=builder /lib/x86_64-linux-gnu/libnss_files.so.2 /lib/x86_64-linux-gnu/
+COPY --from=builder /lib/x86_64-linux-gnu/libresolv.so.2 /lib/x86_64-linux-gnu/
+COPY --from=builder /etc/nsswitch.conf /etc/
 
 ENV RUST_LOG=info
 ENV HOST=0.0.0.0
+ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
 
 EXPOSE 8080
 
