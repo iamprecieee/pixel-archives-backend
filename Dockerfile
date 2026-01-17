@@ -34,7 +34,7 @@ RUN cargo build --release
 FROM gcr.io/distroless/cc-debian12
 
 # Copy binary from builder
-COPY --from=builder /app/target/release/pixel /app
+COPY --from=builder /app/target/release/pixel_archives /app/pixel_archives
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
 ENV RUST_LOG=info
@@ -42,4 +42,4 @@ ENV HOST=0.0.0.0
 
 EXPOSE 8080
 
-ENTRYPOINT ["/app"]
+ENTRYPOINT ["/app/pixel_archives"]
