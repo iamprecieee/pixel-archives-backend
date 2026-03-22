@@ -104,10 +104,18 @@ impl MigrationTrait for Migration {
             .get_connection()
             .execute_unprepared(
                 r#"
-                ALTER TABLE pixels
-                ADD CONSTRAINT chk_pixels_x CHECK (x >= 0 AND x < 32),
-                ADD CONSTRAINT chk_pixels_y CHECK (y >= 0 AND y < 32),
-                ADD CONSTRAINT chk_pixels_color CHECK (color >= 0 AND color < 64)
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM pg_constraint WHERE conname = 'chk_pixels_x'
+                    ) THEN
+                        ALTER TABLE pixels
+                        ADD CONSTRAINT chk_pixels_x CHECK (x >= 0 AND x < 32),
+                        ADD CONSTRAINT chk_pixels_y CHECK (y >= 0 AND y < 32),
+                        ADD CONSTRAINT chk_pixels_color CHECK (color >= 0 AND color < 64);
+                    END IF;
+                END
+                $$;
                 "#,
             )
             .await?;
