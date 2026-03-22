@@ -80,6 +80,7 @@ impl MigrationTrait for Migration {
         manager
             .create_index(
                 Index::create()
+                    .if_not_exists()
                     .name("idx_pixels_canvas_id")
                     .table(Pixels::Table)
                     .col(Pixels::CanvasId)
@@ -90,6 +91,7 @@ impl MigrationTrait for Migration {
         manager
             .create_index(
                 Index::create()
+                    .if_not_exists()
                     .name("idx_pixels_owner_id")
                     .table(Pixels::Table)
                     .col(Pixels::OwnerId)

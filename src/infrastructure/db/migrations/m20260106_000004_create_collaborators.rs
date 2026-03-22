@@ -69,6 +69,7 @@ impl MigrationTrait for Migration {
         manager
             .create_index(
                 Index::create()
+                    .if_not_exists()
                     .name("idx_collaborators_canvas_id")
                     .table(CanvasCollaborators::Table)
                     .col(CanvasCollaborators::CanvasId)
@@ -79,6 +80,7 @@ impl MigrationTrait for Migration {
         manager
             .create_index(
                 Index::create()
+                    .if_not_exists()
                     .name("idx_collaborators_user_id")
                     .table(CanvasCollaborators::Table)
                     .col(CanvasCollaborators::UserId)

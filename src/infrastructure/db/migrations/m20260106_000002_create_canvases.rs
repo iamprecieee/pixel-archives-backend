@@ -79,6 +79,7 @@ impl MigrationTrait for Migration {
         manager
             .create_index(
                 Index::create()
+                    .if_not_exists()
                     .name("idx_canvases_owner_id")
                     .table(Canvases::Table)
                     .col(Canvases::OwnerId)
@@ -89,6 +90,7 @@ impl MigrationTrait for Migration {
         manager
             .create_index(
                 Index::create()
+                    .if_not_exists()
                     .name("idx_canvases_state")
                     .table(Canvases::Table)
                     .col(Canvases::State)

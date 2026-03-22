@@ -46,6 +46,7 @@ impl MigrationTrait for Migration {
         manager
             .create_index(
                 Index::create()
+                    .if_not_exists()
                     .name("idx_users_wallet_address")
                     .table(Users::Table)
                     .col(Users::WalletAddress)
@@ -56,6 +57,7 @@ impl MigrationTrait for Migration {
         manager
             .create_index(
                 Index::create()
+                    .if_not_exists()
                     .name("idx_users_username")
                     .table(Users::Table)
                     .col(Users::Username)
