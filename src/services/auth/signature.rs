@@ -45,18 +45,6 @@ pub fn verify_signature(wallet: &str, message: &str, signature: &str) -> Result<
 
     let byte_signature = Signature::from_bytes(&signature_array);
 
-    // 1. Try verifying with Solana off-chain message prefix (used by wallet adapters)
-    let mut offchain_msg = Vec::with_capacity(17 + 2 + message.len());
-    offchain_msg.extend_from_slice(b"\xffsolana offchain\x00\x00");
-    let msg_len = message.len() as u16;
-    offchain_msg.extend_from_slice(&msg_len.to_le_bytes());
-    offchain_msg.extend_from_slice(message.as_bytes());
-
-    if verifying_key.verify(&offchain_msg, &byte_signature).is_ok() {
-        return Ok(());
-    }
-
-    // 2. Fallback: Try verifying raw message
     verifying_key
         .verify(message.as_bytes(), &byte_signature)
         .map_err(|_| AppError::InvalidSignature)?;
